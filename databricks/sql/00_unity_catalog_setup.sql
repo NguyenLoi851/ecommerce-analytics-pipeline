@@ -1,0 +1,13 @@
+-- Run in Databricks SQL Editor as account/workspace admin.
+-- Replace catalog names if needed.
+
+CREATE CATALOG IF NOT EXISTS dev;
+CREATE CATALOG IF NOT EXISTS prod;
+
+CREATE SCHEMA IF NOT EXISTS dev.bronze;
+CREATE SCHEMA IF NOT EXISTS dev.silver;
+CREATE SCHEMA IF NOT EXISTS dev.gold;
+
+CREATE SCHEMA IF NOT EXISTS prod.bronze;
+CREATE SCHEMA IF NOT EXISTS prod.silver;
+CREATE SCHEMA IF NOT EXISTS prod.gold;
