@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Staging view over dev.bronze.orders. Minimal transformations — rename only."
+    columns:
+      - name: order_id
+        description: "Unique order identifier."
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests: [not_null]
+      - name: order_status
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - created
+                - approved
+                - invoiced
+                - processing
+                - shipped
+                - delivered
+                - unavailable
+                - canceled
+      - name: order_purchase_timestamp
+        tests: [not_null]
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]

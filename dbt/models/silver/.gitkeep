@@ -1,0 +1,10 @@
+# Silver models — placeholder
+# Add conformed dimension and fact models here in Phase 2.
+# Example models to build:
+#   dim_customers.sql
+#   dim_sellers.sql
+#   dim_products.sql
+#   fct_orders.sql
+#   fct_order_items.sql
+#   fct_payments.sql
+#   fct_reviews.sql

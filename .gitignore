@@ -199,6 +199,10 @@ cython_debug/
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
 #  refer to https://docs.cursor.com/context/ignore-files
 
+# dbt local profile (contains secrets)
+dbt/profiles.yml
+dbt/.user.yml
+
 # Terraform
 .terraform/
 *.tfstate

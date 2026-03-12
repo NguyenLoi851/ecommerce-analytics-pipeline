@@ -1,0 +1,37 @@
+name: 'olist'
+version: '1.0.0'
+config-version: 2
+
+profile: 'olist'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  catalog: "dev"
+  bronze_schema: "bronze"
+  silver_schema: "silver"
+  gold_schema: "gold"
+
+models:
+  olist:
+    staging:
+      +schema: bronze          # reads from bronze, writes to bronze staging views
+      +materialized: view
+    silver:
+      +schema: silver
+      +materialized: table
+      +file_format: delta
+    gold:
+      +schema: gold
+      +materialized: table
+      +file_format: delta

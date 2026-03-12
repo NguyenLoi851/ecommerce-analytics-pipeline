@@ -1,0 +1,32 @@
+# dbt profiles.yml — Databricks SQL Warehouse connection
+#
+# Copy this file to dbt/profiles.yml and fill in your values.
+# DO NOT commit your actual profiles.yml — it contains credentials.
+#
+# How to find values:
+#   host:      Databricks workspace URL (without https://)
+#              e.g. adb-1234567890123456.7.azuredatabricks.net
+#   http_path: SQL Warehouse -> Connection Details -> HTTP Path
+#              e.g. /sql/1.0/warehouses/abcdef1234567890
+#   token:     User Settings -> Access Tokens -> Generate new token
+
+olist:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      host: "<workspace-url>.azuredatabricks.net"
+      http_path: "/sql/1.0/warehouses/<warehouse-id>"
+      token: "<databricks-personal-access-token>"
+      catalog: dev
+      schema: bronze    # default schema; models override per their folder config
+      threads: 4
+
+    prod:
+      type: databricks
+      host: "<workspace-url>.azuredatabricks.net"
+      http_path: "/sql/1.0/warehouses/<warehouse-id>"
+      token: "<databricks-personal-access-token>"
+      catalog: prod
+      schema: bronze
+      threads: 4
