@@ -1,0 +1,79 @@
+{
+  "name": "olist-phase1-bronze-ingestion",
+  "description": "Phase 1: Ingest Olist CSVs from S3 to Bronze Delta tables and run quality checks.",
+  "tasks": [
+    {
+      "task_key": "notebook_bronze_ingestion",
+      "description": "Read all Olist CSVs from S3 and write Bronze Delta tables.",
+      "notebook_task": {
+        "notebook_path": "databricks/notebooks/01_bronze_ingestion",
+        "source": "GIT",
+        "base_parameters": {
+          "RAW_BUCKET": "{{job.parameters.raw_bucket}}",
+          "RAW_PREFIX": "raw/olist",
+          "CATALOG": "dev",
+          "BRONZE_SCHEMA": "bronze"
+        }
+      },
+      "new_cluster": {
+        "spark_version": "15.4.x-scala2.12",
+        "node_type_id": "i3.xlarge",
+        "num_workers": 2,
+        "spark_conf": {
+          "spark.databricks.delta.preview.enabled": "true"
+        },
+        "aws_attributes": {
+          "availability": "SPOT_WITH_FALLBACK"
+        }
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 1,
+      "retry_on_timeout": false
+    },
+    {
+      "task_key": "notebook_bronze_quality_checks",
+      "description": "Run baseline quality checks on the Bronze tables.",
+      "depends_on": [
+        { "task_key": "notebook_bronze_ingestion" }
+      ],
+      "notebook_task": {
+        "notebook_path": "databricks/notebooks/02_bronze_quality_checks",
+        "source": "GIT",
+        "base_parameters": {
+          "CATALOG": "dev",
+          "BRONZE_SCHEMA": "bronze"
+        }
+      },
+      "existing_cluster_id": "{{tasks.notebook_bronze_ingestion.cluster_instance.cluster_id}}",
+      "timeout_seconds": 600,
+      "max_retries": 0
+    }
+  ],
+  "job_clusters": [],
+  "parameters": [
+    {
+      "name": "raw_bucket",
+      "default": "<your-raw-bucket>"
+    }
+  ],
+  "git_source": {
+    "git_url": "https://github.com/<your-org>/ecommerce-analytics-pipeline",
+    "git_provider": "gitHub",
+    "git_branch": "main"
+  },
+  "schedule": {
+    "quartz_cron_expression": "0 0 2 * * ?",
+    "timezone_id": "UTC",
+    "pause_status": "PAUSED"
+  },
+  "max_concurrent_runs": 1,
+  "email_notifications": {
+    "on_failure": ["<your-email@example.com>"],
+    "no_alert_for_skipped_runs": true
+  },
+  "tags": {
+    "project": "ecommerce-analytics",
+    "phase": "1",
+    "layer": "bronze"
+  }
+}
