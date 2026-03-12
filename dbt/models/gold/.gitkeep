@@ -1,0 +1,7 @@
+# Gold models — placeholder
+# Add KPI mart models here in Phase 3.
+# Example models to build:
+#   mart_sales_daily.sql
+#   mart_category_performance.sql
+#   mart_customer_cohorts.sql
+#   mart_delivery_sla.sql

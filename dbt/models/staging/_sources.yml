@@ -1,0 +1,93 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw Bronze Delta tables ingested from the Olist dataset CSVs."
+    catalog: "{{ var('catalog') }}"
+    schema: "{{ var('bronze_schema') }}"
+    tables:
+      - name: orders
+        description: "One row per order. Source: olist_orders_dataset.csv"
+        columns:
+          - name: order_id
+            description: "Unique order identifier."
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            tests: [not_null]
+          - name: order_status
+            tests: [not_null]
+          - name: order_purchase_timestamp
+            tests: [not_null]
+
+      - name: order_items
+        description: "One row per item within an order. Source: olist_order_items_dataset.csv"
+        columns:
+          - name: order_id
+            tests: [not_null]
+          - name: order_item_id
+            tests: [not_null]
+          - name: product_id
+            tests: [not_null]
+          - name: seller_id
+            tests: [not_null]
+
+      - name: order_payments
+        description: "Payment transactions for each order. Source: olist_order_payments_dataset.csv"
+        columns:
+          - name: order_id
+            tests: [not_null]
+          - name: payment_sequential
+            tests: [not_null]
+          - name: payment_type
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['credit_card', 'boleto', 'voucher', 'debit_card', 'not_defined']
+
+      - name: order_reviews
+        description: "Customer review scores and comments. Source: olist_order_reviews_dataset.csv"
+        columns:
+          - name: review_id
+            tests: [not_null]
+          - name: order_id
+            tests: [not_null]
+          - name: review_score
+            tests:
+              - accepted_values:
+                  values: [1, 2, 3, 4, 5]
+
+      - name: customers
+        description: "Customer dimension. Source: olist_customers_dataset.csv"
+        columns:
+          - name: customer_id
+            tests: [not_null, unique]
+          - name: customer_unique_id
+            tests: [not_null]
+
+      - name: sellers
+        description: "Seller dimension. Source: olist_sellers_dataset.csv"
+        columns:
+          - name: seller_id
+            tests: [not_null, unique]
+
+      - name: products
+        description: "Product dimension. Source: olist_products_dataset.csv"
+        columns:
+          - name: product_id
+            tests: [not_null, unique]
+
+      - name: geolocation
+        description: "ZIP code to lat/lng mapping. Source: olist_geolocation_dataset.csv"
+        columns:
+          - name: geolocation_zip_code_prefix
+            tests: [not_null]
+
+      - name: product_category_name_translation
+        description: "Portuguese to English category name mapping."
+        columns:
+          - name: product_category_name
+            tests: [not_null, unique]
+          - name: product_category_name_english
+            tests: [not_null]
