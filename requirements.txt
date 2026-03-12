@@ -1,0 +1,9 @@
+# ── dbt (Phase 1 Step 2) ──────────────────────────────────────────────────────
+# Requires Python 3.11 (see .python-version).
+# dbt-databricks pulls in dbt-core and all adapters automatically.
+dbt-databricks==1.11.6
+
+# ── Data ingestion scripts (Phase 1 Step 1) ───────────────────────────────────
+# scripts/upload_to_s3.py
+kaggle>=1.6
+boto3>=1.34
