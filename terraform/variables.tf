@@ -1,42 +1,38 @@
-variable "gcp_project_id" {
-  description = "GCP project ID where buckets will be created"
+variable "aws_region" {
+  description = "AWS region for S3 buckets"
   type        = string
+  default     = "us-east-1"
 }
 
-variable "gcp_credentials_file" {
-  description = "Path to the GCP service account JSON key file used by Terraform."
+variable "aws_profile" {
+  description = "Optional AWS CLI profile name used by Terraform"
   type        = string
-}
-
-variable "region" {
-  description = "GCP region for bucket location"
-  type        = string
-  default     = "us-central1"
+  default     = null
 }
 
 variable "environment" {
-  description = "Environment label (e.g., dev, prod)"
+  description = "Environment name (e.g. dev, prod)"
   type        = string
   default     = "dev"
 }
 
 variable "raw_bucket_name" {
-  description = "Name of raw landing bucket"
+  description = "S3 bucket name for raw data"
   type        = string
 }
 
 variable "curated_bucket_name" {
-  description = "Name of curated bucket"
+  description = "S3 bucket name for curated data"
   type        = string
 }
 
 variable "logs_bucket_name" {
-  description = "Name of logs bucket"
+  description = "S3 bucket name for logs"
   type        = string
 }
 
 variable "force_destroy" {
-  description = "Whether to allow bucket deletion with objects"
+  description = "Whether to allow destroying non-empty buckets"
   type        = bool
   default     = false
 }
