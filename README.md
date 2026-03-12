@@ -7,7 +7,7 @@ Dataset source: https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
 ## 1) Project Goal
 
 Build a production-style analytics pipeline that:
-- lands raw Olist data in cloud storage (GCS),
+- lands raw Olist data in cloud storage (S3),
 - ingests into Delta tables on Databricks (Bronze),
 - transforms with dbt into conformed analytics models (Silver/Gold),
 - serves curated marts for BI/reporting,
@@ -18,13 +18,13 @@ Build a production-style analytics pipeline that:
 - Databricks-first orchestration and compute (minimal external tools).
 - dbt for transformation logic, testing, and documentation.
 - Unity Catalog for governance, lineage, and permissions.
-- GCS as storage layer.
+- S3 as storage layer.
 - Keep Terraform/Airflow optional and add only when needed.
 
 ## 3) Target Architecture
 
 1. **Source**: Kaggle Olist CSVs.
-2. **Landing zone**: GCS bucket/prefix (`raw/olist/...`).
+2. **Landing zone**: S3 bucket/prefix (`raw/olist/...`).
 3. **Ingestion** (Databricks Workflows + notebooks/jobs): CSV -> Bronze Delta.
 4. **Transformation** (dbt on Databricks SQL Warehouse): Bronze -> Silver -> Gold.
 5. **Consumption**: Databricks SQL dashboards or external BI tools.
@@ -60,42 +60,43 @@ Build a production-style analytics pipeline that:
 
 ## Phase 0 — Foundation
 
-1. Provision Databricks workspace on GCP.
+1. Provision Databricks workspace on AWS.
 2. Enable Unity Catalog and attach metastore.
 3. Create catalogs/schemas:
 	- `dev.bronze`, `dev.silver`, `dev.gold`
 	- `prod.bronze`, `prod.silver`, `prod.gold`
-4. Create GCS buckets (or one bucket with prefixes):
+4. Create S3 buckets (or one bucket with prefixes):
 	- `olist-raw`, `olist-curated`, `olist-logs`
-5. Configure Databricks access to GCS (service account + storage credential + external location).
-6. Create a SQL Warehouse for dbt.
-7. Create repo structure and connect Databricks Repos to GitHub.
+5. Configure Databricks access to S3 (IAM role + storage credential + external location).
+6. Create repo structure and connect Databricks Repos to GitHub.
 
 ## Phase 1 — Ingestion to Bronze
 
-1. Download dataset and upload CSVs to GCS raw path.
-2. Build ingestion notebooks/jobs in Databricks:
+1. Download dataset and upload CSVs to S3 raw path.
+2. Set up dbt only after raw data is in S3:
+	- bootstrap dbt project with `dbt-databricks`,
+	- configure `profiles.yml` and validate connection (`dbt debug`).
+3. Build ingestion notebooks/jobs in Databricks:
 	- schema inference/definition,
 	- robust type casting,
 	- idempotent load pattern.
-3. Write Bronze Delta tables.
-4. Add baseline checks:
+4. Write Bronze Delta tables.
+5. Add baseline checks:
 	- row-count reconciliation,
 	- null checks on key columns,
 	- duplicate checks.
-5. Schedule with Databricks Workflows.
+6. Schedule with Databricks Workflows.
 
 **Deliverable**: all source files reliably loaded to Bronze Delta tables.
 
 ## Phase 2 — dbt Silver Models
 
-1. Bootstrap dbt project with `dbt-databricks`.
-2. Create `sources.yml` and staging models (`stg_*`).
-3. Build conformed Silver models (dimensions and facts).
-4. Add dbt tests:
+1. Create `sources.yml` and staging models (`stg_*`).
+2. Build conformed Silver models (dimensions and facts).
+3. Add dbt tests:
 	- `not_null`, `unique`, `relationships`, `accepted_values`.
-5. Add incremental strategy where appropriate.
-6. Generate and publish dbt docs.
+4. Add incremental strategy where appropriate.
+5. Generate and publish dbt docs.
 
 **Deliverable**: trusted, test-covered Silver layer.
 
@@ -133,42 +134,117 @@ Build a production-style analytics pipeline that:
 
 Use this exact sequence for your first successful run:
 
-1. Create Databricks workspace (GCP).
+1. Create Databricks workspace (AWS).
 2. Enable Unity Catalog and metastore.
 3. Create compute policy and starter cluster.
 4. Create SQL Warehouse.
 5. Connect GitHub in Databricks user settings (PAT or GitHub App).
 6. Clone this repo into Databricks Repos.
 7. Create catalogs/schemas for `dev` and `prod`.
-8. Configure GCS access credentials + external location.
-9. Test notebook read from GCS and write to Delta.
-10. Create secret scope for tokens/keys.
-11. Run ingestion job once.
-12. Run dbt (`dbt run`, `dbt test`) against `dev`.
-13. Create and schedule Databricks Workflow.
-14. Promote same logic to `prod` target.
+8. Create S3 buckets (`raw`, `curated`, `logs`) with Terraform.
+9. Create IAM role for Databricks Unity Catalog access to S3 buckets.
+10. Configure external locations in Databricks SQL.
+11. Test notebook read from S3 and write to Delta.
+12. Run ingestion job once.
+13. Set up and run dbt (after CSV upload to S3): `dbt debug`, `dbt run`, `dbt test` against `dev`.
+14. Create and schedule Databricks Workflow.
+15. Promote same logic to `prod` target.
 
-## 7) Recommended Repository Layout
+## 7) First-Time S3 + IAM Setup for Databricks (Important)
+
+If this is your first S3 + Databricks setup, use this exact flow:
+
+1. Create the S3 buckets with Terraform (`terraform/`).
+2. In Databricks Account Console, open **Data** -> **Credentials** and start creating an AWS IAM role-based credential.
+3. Databricks will show trust-policy requirements (AWS principal + external ID). Copy these values.
+4. In AWS IAM, create a role (for example `databricks-olist-s3-role`) and paste the trust policy from Databricks.
+5. Attach an S3 policy to this IAM role with at least:
+	- bucket-level: `s3:ListBucket`, `s3:GetBucketLocation`
+	- object-level: `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`
+	- resources for both raw and curated bucket ARNs (bucket + `/*`).
+6. Copy the IAM role ARN.
+7. Run `databricks/sql/01_external_location_s3.sql` and replace placeholders:
+	- `<databricks-s3-access-role-arn>`
+	- `<your-raw-bucket>`
+	- `<your-curated-bucket>`
+8. Validate access with the smoke test notebook.
+
+Example S3 policy (replace bucket names):
+
+```json
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+			"Resource": [
+				"arn:aws:s3:::<your-raw-bucket>",
+				"arn:aws:s3:::<your-curated-bucket>"
+			]
+		},
+		{
+			"Effect": "Allow",
+			"Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+			"Resource": [
+				"arn:aws:s3:::<your-raw-bucket>/*",
+				"arn:aws:s3:::<your-curated-bucket>/*"
+			]
+		}
+	]
+}
+```
+
+## 8) Recommended Repository Layout
 
 ```text
 ecommerce-analytics-pipeline/
 ├── README.md
 ├── databricks/
 │   ├── notebooks/
-│   ├── jobs/
+│   │   └── 00_phase0_smoke_test.py
+│   ├── sql/
+│   │   ├── 00_unity_catalog_setup.sql
+│   │   └── 01_external_location_s3.sql
 │   └── workflows/
+│       └── phase0_workflow.md
 ├── dbt/
 │   ├── dbt_project.yml
+│   ├── profiles.yml.example
 │   ├── models/
 │   │   ├── staging/
+│   │   │   ├── _sources.yml
+│   │   │   ├── stg_orders.sql
+│   │   │   └── stg_orders.yml
 │   │   ├── silver/
 │   │   └── gold/
 │   ├── tests/
 │   └── macros/
 ├── docs/
 │   ├── architecture.md
-│   ├── runbook.md
-│   └── kpi_definitions.md
+│   └── phase0-runbook.md
+├── terraform/
+│   ├── main.tf
+│   ├── providers.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── terraform.tfvars.example
 └── .github/
 	 └── workflows/
+		  └── dbt-ci.yml
 ```
+
+## 9) Phase 0: What to Run Now
+
+1. Provision S3 buckets with Terraform:
+	- `cd terraform`
+	- `cp terraform.tfvars.example terraform.tfvars`
+	- update `terraform.tfvars` values
+	- `terraform init && terraform plan && terraform apply`
+2. Run SQL setup in Databricks SQL Editor:
+	- `databricks/sql/00_unity_catalog_setup.sql`
+	- `databricks/sql/01_external_location_s3.sql`
+3. Run smoke test notebook:
+	- `databricks/notebooks/00_phase0_smoke_test.py`
+4. Follow the full execution checklist:
+	- `docs/phase0-runbook.md`
