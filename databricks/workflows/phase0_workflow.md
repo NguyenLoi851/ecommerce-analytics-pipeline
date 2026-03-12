@@ -8,7 +8,7 @@ Create a Databricks Workflow named `olist-phase0-bootstrap` with these tasks:
 
 2. `sql_external_location_setup`
    - Type: SQL task
-   - Script: `databricks/sql/01_external_location_gcs.sql`
+   - Script: `databricks/sql/01_external_location_s3.sql`
    - Depends on: `sql_uc_setup`
 
 3. `notebook_smoke_test`

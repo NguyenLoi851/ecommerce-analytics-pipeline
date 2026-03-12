@@ -1,5 +1,5 @@
 # Databricks notebook source
-# Purpose: validate that Unity Catalog, schemas, and GCS external location access are working.
+# Purpose: validate that Unity Catalog, schemas, and S3 external location access are working.
 
 from pyspark.sql import functions as F
 
@@ -14,5 +14,5 @@ df = spark.sql("SELECT * FROM dev.bronze.phase0_smoke_test ORDER BY created_at D
 display(df)
 
 # Optional: test external location read (replace with actual existing path)
-# test_df = spark.read.option("header", True).csv("gs://<your-raw-bucket>/raw/olist/olist_orders_dataset.csv")
+# test_df = spark.read.option("header", True).csv("s3://<your-raw-bucket>/raw/olist/olist_orders_dataset.csv")
 # display(test_df.limit(10))
