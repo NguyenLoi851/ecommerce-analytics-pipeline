@@ -65,7 +65,7 @@ Build a production-style analytics pipeline that:
 3. Create catalogs/schemas:
 	- `dev.bronze`, `dev.silver`, `dev.gold`
 	- `prod.bronze`, `prod.silver`, `prod.gold`
-4. Create S3 buckets (or one bucket with prefixes):
+4. ✅ Create S3 buckets (or one bucket with prefixes) with Terraform:
 	- `olist-raw`, `olist-curated`, `olist-logs`
 5. Configure Databricks access to S3 (IAM role + storage credential + external location).
 6. Create repo structure and connect Databricks Repos to GitHub.
@@ -124,11 +124,19 @@ Build a production-style analytics pipeline that:
 
 ## Phase 5 — Optional Enhancements
 
-- Add Terraform for infrastructure as code.
-- Add Airflow only if cross-platform orchestration is needed.
+- Implement incremental Bronze ingestion (avoid full reload) for most high-volume tables:
+	- use watermark + idempotent `MERGE` pattern,
+	- support parameterized backfill windows.
+- Add late-arriving data handling rules for incremental tables.
+- Research and prototype SCD Type 2 in Silver dimensions:
+	- evaluate candidates (`dim_customers`, `dim_products`),
+	- define `valid_from`, `valid_to`, `is_current` columns,
+	- compare snapshot vs custom `MERGE` implementation.
 - Delta optimizations (`OPTIMIZE`, partition strategy, maintenance tasks).
-- Data contracts and stricter SLAs.
-- PII masking / column-level access controls.
+- Re-structure project docs:
+	- split quickstart vs runbooks,
+	- add troubleshooting + common failure playbooks,
+	- add architecture decision log (ADR-style notes
 
 ## 6) First-Time Databricks Setup Checklist
 
@@ -206,8 +214,8 @@ ecommerce-analytics-pipeline/
 │   ├── sql/
 │   │   ├── 00_unity_catalog_setup.sql
 │   │   └── 01_external_location_s3.sql
-│   └── workflows/
-│       └── phase0_workflow.md
+│   ├── workflows/
+│   │   └── phase0_workflow.md
 │   ├── notebooks/
 │   │   ├── 00_phase0_smoke_test.py
 │   │   ├── 01_bronze_ingestion.py        ← Phase 1
