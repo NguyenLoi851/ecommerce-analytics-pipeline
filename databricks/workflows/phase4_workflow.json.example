@@ -1,0 +1,210 @@
+{
+  "name": "olist-production-pipeline",
+  "description": "End-to-end Olist analytics pipeline: ingest → dbt run → dbt test → publish",
+  "max_concurrent_runs": 1,
+  "format": "MULTI_TASK",
+
+  "schedule": {
+    "quartz_cron_expression": "0 0 3 * * ?",
+    "timezone_id": "UTC",
+    "pause_status": "UNPAUSED"
+  },
+
+  "email_notifications": {
+    "on_start": [],
+    "on_success": ["<your-team-email>"],
+    "on_failure": ["<your-team-email>", "<your-oncall-email>"],
+    "on_duration_warning_threshold_exceeded": ["<your-team-email>"]
+  },
+
+  "webhook_notifications": {
+    "on_failure": []
+  },
+
+  "health": {
+    "rules": [
+      {
+        "metric": "RUN_DURATION_SECONDS",
+        "op": "GREATER_THAN",
+        "value": 7200
+      }
+    ]
+  },
+
+  "environments": [
+    {
+      "environment_key": "dbt_env",
+      "spec": {
+        "client": "2",
+        "dependencies": [
+          "dbt-databricks==1.11.6"
+        ]
+      }
+    }
+  ],
+
+  "tasks": [
+    {
+      "task_key": "bronze_ingestion",
+      "description": "Ingest all Olist CSVs from S3 into Bronze Delta tables",
+      "notebook_task": {
+        "notebook_path": "databricks/notebooks/01_bronze_ingestion",
+        "base_parameters": {
+          "RAW_BUCKET": "<your-raw-bucket>",
+          "TARGET_CATALOG": "prod",
+          "TARGET_SCHEMA": "bronze"
+        },
+        "source": "GIT"
+      },
+      "timeout_seconds": 3600,
+      "max_retries": 1,
+      "min_retry_interval_millis": 300000,
+      "retry_on_timeout": false
+    },
+    {
+      "task_key": "bronze_quality_checks",
+      "description": "Row-count reconciliation, null checks, duplicate checks on Bronze",
+      "depends_on": [
+        { "task_key": "bronze_ingestion" }
+      ],
+      "notebook_task": {
+        "notebook_path": "databricks/notebooks/02_bronze_quality_checks",
+        "base_parameters": {
+          "TARGET_CATALOG": "prod",
+          "TARGET_SCHEMA": "bronze",
+          "FAIL_ON_QUALITY_ERROR": "true"
+        },
+        "source": "GIT"
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
+      "task_key": "dbt_run_silver",
+      "description": "dbt run — build staging + silver models",
+      "depends_on": [
+        { "task_key": "bronze_quality_checks" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt deps",
+          "dbt run --select staging silver --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "silver",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 3600,
+      "max_retries": 1,
+      "min_retry_interval_millis": 300000
+    },
+    {
+      "task_key": "dbt_test_silver",
+      "description": "dbt test — validate staging + silver models",
+      "depends_on": [
+        { "task_key": "dbt_run_silver" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt test --select staging silver --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "silver",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
+      "task_key": "dbt_run_gold",
+      "description": "dbt run — build gold marts",
+      "depends_on": [
+        { "task_key": "dbt_test_silver" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt run --select gold --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "gold",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 3600,
+      "max_retries": 1,
+      "min_retry_interval_millis": 300000
+    },
+    {
+      "task_key": "dbt_test_gold",
+      "description": "dbt test — validate gold marts",
+      "depends_on": [
+        { "task_key": "dbt_run_gold" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt test --select gold --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "gold",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
+      "task_key": "publish_gold",
+      "description": "Refresh Databricks SQL dashboard / run post-publish housekeeping",
+      "depends_on": [
+        { "task_key": "dbt_test_gold" }
+      ],
+      "notebook_task": {
+        "notebook_path": "databricks/notebooks/03_publish_gold",
+        "base_parameters": {
+          "TARGET_CATALOG": "prod",
+          "OPTIMIZE_TABLES": "true"
+        },
+        "source": "GIT"
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    }
+  ],
+
+  "git_source": {
+    "git_url": "https://github.com/<your-github-username>/ecommerce-analytics-pipeline",
+    "git_provider": "gitHub",
+    "git_branch": "main"
+  },
+
+  "parameters": [
+    {
+      "name": "env",
+      "default": "prod"
+    },
+    {
+      "name": "backfill_start_date",
+      "default": ""
+    },
+    {
+      "name": "backfill_end_date",
+      "default": ""
+    }
+  ],
+
+  "tags": {
+    "project": "olist",
+    "phase": "4",
+    "team": "analytics-engineering"
+  }
+}
