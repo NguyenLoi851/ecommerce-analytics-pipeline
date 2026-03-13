@@ -134,10 +134,15 @@ Build a production-style analytics pipeline that:
 	- define `valid_from`, `valid_to`, `is_current` columns,
 	- compare snapshot vs custom `MERGE` implementation.
 - Delta optimizations (`OPTIMIZE`, partition strategy, maintenance tasks).
+- ✅ Add full reset tooling to rerun pipeline from scratch:
+	- delete raw landing data only (`raw/olist`),
+	- delete Auto Loader snapshot/checkpoint state only (`state/autoloader/olist`),
+	- delete both raw + state in one command,
+	- drop and recreate all layer schemas (`bronze`, `silver`, `gold`) in Databricks.
 - Re-structure project docs:
 	- split quickstart vs runbooks,
 	- add troubleshooting + common failure playbooks,
-	- add architecture decision log (ADR-style notes
+	- add architecture decision log (ADR-style notes).
 
 ## 6) First-Time Databricks Setup Checklist
 
@@ -610,3 +615,75 @@ SELECT 'mart_delivery_sla',                   COUNT(*) FROM prod.gold.mart_deliv
 
 - `docs/phase4-runbook.md` — step-by-step setup, alerting configuration, failure scenarios.
 - `docs/deployment-strategy.md` — branch strategy, CI gates, prod promotion, rollback procedure.
+
+## 14) Reset Playbook (Run from Scratch)
+
+Use this when you want a clean re-run of the entire project.
+
+### A) Reset S3 data (raw and/or Auto Loader state)
+
+Script: `scripts/reset_s3_data.py`
+
+1. Preview deletions (safe dry-run):
+
+```bash
+python scripts/reset_s3_data.py \
+	--bucket <your-raw-bucket> \
+	--mode all \
+	--profile <your-project-profile> \
+	--dry-run
+```
+
+2. Delete **raw** data only:
+
+```bash
+python scripts/reset_s3_data.py \
+	--bucket <your-raw-bucket> \
+	--mode raw \
+	--profile <your-project-profile> \
+	--yes
+```
+
+3. Delete Auto Loader **state/checkpoints** only:
+
+```bash
+python scripts/reset_s3_data.py \
+	--bucket <your-raw-bucket> \
+	--mode state \
+	--profile <your-project-profile> \
+	--yes
+```
+
+4. Delete both raw + state:
+
+```bash
+python scripts/reset_s3_data.py \
+	--bucket <your-raw-bucket> \
+	--mode all \
+	--profile <your-project-profile> \
+	--yes
+```
+
+Defaults used by the script:
+- raw prefix: `raw/olist`
+- state prefix: `state/autoloader/olist`
+
+### B) Reset Databricks Bronze/Silver/Gold layers
+
+SQL file: `databricks/sql/02_reset_layers.sql`
+
+1. Open the SQL file in Databricks SQL Editor.
+2. Set `target_catalog` at the top of the SQL file (`dev` or `prod`).
+3. Run statements top to bottom.
+
+This script will:
+- drop `<target_catalog>.bronze`, `<target_catalog>.silver`, `<target_catalog>.gold` with `CASCADE`,
+- recreate empty schemas with the same names.
+
+### C) Recommended full clean rerun sequence
+
+1. Reset S3 state only (for incremental stream replay tests), or reset all (for full restart).
+2. Reset Databricks layer schemas for the target catalog.
+3. Re-upload raw files if raw data was deleted (`scripts/upload_to_s3.py`).
+4. Run Bronze ingestion notebook/workflow.
+5. Run quality checks + dbt Silver/Gold.
