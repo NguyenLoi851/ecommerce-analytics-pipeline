@@ -124,10 +124,11 @@ Build a production-style analytics pipeline that:
 
 ## Phase 5 — Optional Enhancements
 
-- Implement incremental Bronze ingestion (avoid full reload) for most high-volume tables:
-	- use watermark + idempotent `MERGE` pattern,
-	- support parameterized backfill windows.
-- Add late-arriving data handling rules for incremental tables.
+- ✅ Implement incremental Bronze ingestion (avoid full reload) for most high-volume tables:
+	- uses an `_ingestion_registry` Delta table to track successfully loaded files,
+	- subsequent runs skip already-loaded tables; failed loads are automatically retried,
+	- `geolocation` and `product_category_name_translation` always perform a full overwrite,
+	- `FORCE_RELOAD=true` widget bypasses the registry for all tables in a single run.
 - Research and prototype SCD Type 2 in Silver dimensions:
 	- evaluate candidates (`dim_customers`, `dim_products`),
 	- define `valid_from`, `valid_to`, `is_current` columns,
@@ -562,7 +563,10 @@ Open a PR and confirm both CI jobs pass before merging.
 ### C — Create the Production Databricks Workflow
 
 1. In Databricks UI: **Workflows → Create job → ⋮ → Edit JSON**.
-2. Paste `databricks/workflows/phase4_workflow.json`.
+2. Paste one of these files:
+	- `databricks/workflows/phase4_workflow.json` (current standard ingestion notebook)
+	- `databricks/workflows/phase4_workflow_autoloader.json` (Auto Loader ingestion notebook)
+	- `databricks/workflows/phase4_workflow_autoloader.json.example` (placeholder template for new environments)
 3. Replace all `<placeholder>` values (GitHub username, SQL Warehouse ID, bucket name, emails).
 4. Click **Create**.
 5. Run manually once (**Run now**) to validate the full DAG before enabling the schedule.

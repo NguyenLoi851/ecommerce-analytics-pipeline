@@ -119,7 +119,17 @@ Expected: all checks pass (connection, warehouse reachable, catalog/schema found
 
 ## Step 3 — Run Bronze Ingestion Notebook
 
-Open and run [databricks/notebooks/01_bronze_ingestion.py](../databricks/notebooks/01_bronze_ingestion.py) in Databricks.
+Choose **one** ingestion notebook:
+
+- Standard ingestion: [databricks/notebooks/01_bronze_ingestion.py](../databricks/notebooks/01_bronze_ingestion.py)
+- Auto Loader ingestion: [databricks/notebooks/01_bronze_ingestion_autoloader.py](../databricks/notebooks/01_bronze_ingestion_autoloader.py)
+
+If you choose the Auto Loader notebook:
+- Incremental tables are discovered with `cloudFiles` and skipped on re-runs via checkpoint state.
+- `geolocation` and `product_category_name_translation` are still full-overwrite loads.
+- Optional widget parameters:
+  - `FORCE_RELOAD=true` resets Auto Loader state and reloads incremental tables.
+  - `AUTOLOADER_STATE_BASE` sets where schema/checkpoint metadata is stored.
 
 Before running, set the widget defaults or update the constants at the top:
 - `RAW_BUCKET`: your S3 raw bucket name
@@ -131,7 +141,7 @@ The notebook will:
 1. Read each CSV from S3 using schema inference with defined overrides.
 2. Apply robust type casting and rename columns where needed.
 3. Add metadata columns (`_ingest_ts`, `_source_file`, `_batch_id`).
-4. Write each table as a Delta table under `dev.bronze.*` using `CREATE OR REPLACE` (idempotent).
+4. Write each table as a Delta table under `dev.bronze.*`.
 
 Expected Bronze tables after successful run:
 
@@ -169,10 +179,13 @@ Create the Phase 1 workflow using the JSON spec in [databricks/workflows/phase1_
 ### Import via UI
 
 1. Databricks UI -> Workflows -> Create Job.
-2. Add tasks matching `phase1_workflow.json`:
-   - Task 1: `notebook_bronze_ingestion` — runs `01_bronze_ingestion`
+2. Add tasks matching `phase1_workflow.json` (or an Auto Loader variant if you created one):
+  - Task 1: `notebook_bronze_ingestion` — runs `01_bronze_ingestion` **or** `01_bronze_ingestion_autoloader`
    - Task 2: `notebook_bronze_quality_checks` — depends on Task 1, runs `02_bronze_quality_checks`
-3. Set schedule (e.g., daily at 02:00 UTC) or leave as on-demand for now.
+3. If using Auto Loader, include notebook parameters for Task 1:
+  - `FORCE_RELOAD`: `false` (default)
+  - `AUTOLOADER_STATE_BASE`: e.g. `dbfs:/pipelines/olist/autoloader_state/dev`
+4. Set schedule (e.g., daily at 02:00 UTC) or leave as on-demand for now.
 
 ---
 
