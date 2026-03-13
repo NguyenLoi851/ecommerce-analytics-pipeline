@@ -206,6 +206,7 @@ dbt/.user.yml
 # Databricks workflow config (contains emails, webhook URLs, warehouse IDs)
 # Use databricks/workflows/phase4_workflow.json.example as the template
 databricks/workflows/phase4_workflow.json
+databricks/workflows/phase4_workflow_autoloader.json
 
 # Terraform
 .terraform/
