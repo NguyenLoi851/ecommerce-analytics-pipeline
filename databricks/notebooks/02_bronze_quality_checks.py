@@ -12,8 +12,13 @@
 
 from pyspark.sql import functions as F
 
-CATALOG       = "dev"
-BRONZE_SCHEMA = "bronze"
+dbutils.widgets.text("TARGET_CATALOG",       "dev")
+dbutils.widgets.text("TARGET_SCHEMA",        "bronze")
+dbutils.widgets.text("FAIL_ON_QUALITY_ERROR", "true")
+
+CATALOG            = dbutils.widgets.get("TARGET_CATALOG")
+BRONZE_SCHEMA      = dbutils.widgets.get("TARGET_SCHEMA")
+FAIL_ON_QUALITY_ERROR = dbutils.widgets.get("FAIL_ON_QUALITY_ERROR").lower() == "true"
 
 failures: list[str] = []
 
@@ -145,9 +150,12 @@ if failures:
     print(f"QUALITY CHECK FAILED — {len(failures)} issue(s):")
     for f in failures:
         print(f"  {f}")
-    raise AssertionError(
-        f"{len(failures)} quality check(s) failed. See output above."
-    )
+    if FAIL_ON_QUALITY_ERROR:
+        raise AssertionError(
+            f"{len(failures)} quality check(s) failed. See output above."
+        )
+    else:
+        print("FAIL_ON_QUALITY_ERROR=false — continuing despite failures.")
 else:
     print("All quality checks PASSED.")
 print("=" * 60)
