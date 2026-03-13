@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: fct_payments
+    description: >
+      Conformed payment fact table. One row per (order_id, payment_sequential).
+      An order may have multiple payment rows (split payments / instalment records).
+    columns:
+      - name: order_id
+        description: "Foreign key to fct_orders.order_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+      - name: payment_sequential
+        description: "Sequence number of this payment line within the order."
+        tests: [not_null]
+      - name: payment_type
+        description: "Payment method used."
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - credit_card
+                - boleto
+                - voucher
+                - debit_card
+                - not_defined
+      - name: payment_installments
+        description: "Number of instalment payments chosen by the customer."
+        tests: [not_null]
+      - name: payment_value
+        description: "Value of this payment line in BRL."
+        tests: [not_null]
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]

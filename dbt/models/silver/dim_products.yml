@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: dim_products
+    description: >
+      Conformed product dimension. One row per product_id.
+      Enriched with the English category name from the translation table.
+      Numeric dimensions cast to appropriate types; NULLs preserved where the
+      source has no data.
+    columns:
+      - name: product_id
+        description: "Unique product identifier."
+        tests:
+          - not_null
+          - unique
+      - name: product_category_name
+        description: "Original Portuguese category name (may be NULL for uncategorised products)."
+      - name: product_category_name_english
+        description: "English category name; defaults to 'unknown' when translation is missing."
+        tests: [not_null]
+      - name: product_name_length
+        description: "Number of characters in the product name."
+      - name: product_description_length
+        description: "Number of characters in the product description."
+      - name: product_photos_qty
+        description: "Number of product photos published."
+      - name: product_weight_g
+        description: "Product weight in grams."
+      - name: product_length_cm
+        description: "Product length in centimetres."
+      - name: product_height_cm
+        description: "Product height in centimetres."
+      - name: product_width_cm
+        description: "Product width in centimetres."
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]

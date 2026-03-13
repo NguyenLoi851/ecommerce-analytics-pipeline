@@ -91,9 +91,9 @@ Build a production-style analytics pipeline that:
 
 ## Phase 2 — dbt Silver Models
 
-1. Create `sources.yml` and staging models (`stg_*`).
-2. Build conformed Silver models (dimensions and facts).
-3. Add dbt tests:
+1. ✅ Create `sources.yml` and staging models (`stg_*`).
+2. ✅ Build conformed Silver models (dimensions and facts).
+3. ✅ Add dbt tests:
 	- `not_null`, `unique`, `relationships`, `accepted_values`.
 4. Add incremental strategy where appropriate.
 5. Generate and publish dbt docs.
@@ -227,6 +227,22 @@ ecommerce-analytics-pipeline/
 │   │   │   ├── stg_orders.sql           ← Phase 1
 │   │   │   └── stg_orders.yml           ← Phase 1
 │   │   ├── silver/
+│   │   │   ├── dim_customers.sql        ← Phase 2
+│   │   │   ├── dim_customers.yml        ← Phase 2
+│   │   │   ├── dim_sellers.sql          ← Phase 2
+│   │   │   ├── dim_sellers.yml          ← Phase 2
+│   │   │   ├── dim_products.sql         ← Phase 2
+│   │   │   ├── dim_products.yml         ← Phase 2
+│   │   │   ├── dim_geolocation.sql      ← Phase 2
+│   │   │   ├── dim_geolocation.yml      ← Phase 2
+│   │   │   ├── fct_orders.sql           ← Phase 2
+│   │   │   ├── fct_orders.yml           ← Phase 2
+│   │   │   ├── fct_order_items.sql      ← Phase 2
+│   │   │   ├── fct_order_items.yml      ← Phase 2
+│   │   │   ├── fct_payments.sql         ← Phase 2
+│   │   │   ├── fct_payments.yml         ← Phase 2
+│   │   │   ├── fct_reviews.sql          ← Phase 2
+│   │   │   └── fct_reviews.yml          ← Phase 2
 │   │   └── gold/
 │   ├── tests/
 │   └── macros/
@@ -285,3 +301,88 @@ ecommerce-analytics-pipeline/
 5. Create Databricks Workflow for Phase 1
 6. Follow the full execution checklist:
 	- `docs/phase1-runbook.md`
+
+## 11) Phase 2: What to Run Now
+
+> Prerequisite: Phase 1 complete — all Bronze Delta tables populated in `dev.bronze`.
+
+### Silver models built
+
+| Model | Type | Key logic |
+|---|---|---|
+| `dim_customers` | Dimension | Deduplicates on `customer_unique_id`; standardises city/state casing |
+| `dim_sellers` | Dimension | Standardises city/state casing; casts ZIP to string |
+| `dim_products` | Dimension | Joins English category name from translation table; casts numeric dims |
+| `dim_geolocation` | Dimension | Aggregates many lat/lng samples to one centroid per ZIP prefix |
+| `fct_orders` | Fact | Refs `stg_orders`; adds `is_delivered`, `actual/estimated_delivery_days`, `delivery_delay_days` |
+| `fct_order_items` | Fact | Casts price/freight; adds derived `total_item_value` |
+| `fct_payments` | Fact | One row per `(order_id, payment_sequential)`; validates payment types |
+| `fct_reviews` | Fact | Deduplicates on `review_id`; adds `review_response_days` |
+
+### Run the Silver layer
+
+1. Make sure `dbt/profiles.yml` is configured and `dbt debug` passes:
+	```bash
+	cd dbt && dbt debug --profiles-dir .
+	```
+
+2. Install dbt dependencies:
+	```bash
+	dbt deps --profiles-dir .
+	```
+
+3. Run only the Silver models:
+	```bash
+	dbt run --select silver --profiles-dir .
+	```
+
+4. Run all tests for the Silver layer:
+	```bash
+	dbt test --select silver --profiles-dir .
+	```
+
+5. Run staging + silver together (full Phase 2 surface):
+	```bash
+	dbt run --select staging silver --profiles-dir .
+	dbt test --select staging silver --profiles-dir .
+	```
+
+6. Run a specific model and its upstream dependencies:
+	```bash
+	# e.g. rebuild fct_orders and everything it depends on
+	dbt run --select +fct_orders --profiles-dir .
+	```
+
+7. Generate and serve dbt docs locally:
+	```bash
+	dbt docs generate --profiles-dir .
+	dbt docs serve --profiles-dir .
+	# opens http://localhost:8080 in your browser
+	```
+
+### Verify in Databricks
+
+After a successful `dbt run`, confirm the tables exist:
+
+```sql
+SHOW TABLES IN dev.silver;
+-- Expected: dim_customers, dim_sellers, dim_products, dim_geolocation,
+--           fct_orders, fct_order_items, fct_payments, fct_reviews
+
+-- Quick row-count sanity check
+SELECT 'dim_customers'  AS model, COUNT(*) AS rows FROM dev.silver.dim_customers
+UNION ALL
+SELECT 'dim_sellers',           COUNT(*) FROM dev.silver.dim_sellers
+UNION ALL
+SELECT 'dim_products',          COUNT(*) FROM dev.silver.dim_products
+UNION ALL
+SELECT 'dim_geolocation',       COUNT(*) FROM dev.silver.dim_geolocation
+UNION ALL
+SELECT 'fct_orders',            COUNT(*) FROM dev.silver.fct_orders
+UNION ALL
+SELECT 'fct_order_items',       COUNT(*) FROM dev.silver.fct_order_items
+UNION ALL
+SELECT 'fct_payments',          COUNT(*) FROM dev.silver.fct_payments
+UNION ALL
+SELECT 'fct_reviews',           COUNT(*) FROM dev.silver.fct_reviews;
+```

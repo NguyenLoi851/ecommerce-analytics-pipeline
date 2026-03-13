@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_sellers
+    description: >
+      Conformed seller dimension. One row per seller_id.
+      City and state are standardised to consistent casing.
+    columns:
+      - name: seller_id
+        description: "Unique seller identifier."
+        tests:
+          - not_null
+          - unique
+      - name: seller_zip_code_prefix
+        description: "5-digit ZIP code prefix."
+        tests: [not_null]
+      - name: seller_city
+        description: "Seller city (lower-cased)."
+        tests: [not_null]
+      - name: seller_state
+        description: "Brazilian state code, 2-char upper-case."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [
+                'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS',
+                'MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC',
+                'SE','SP','TO'
+              ]
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]

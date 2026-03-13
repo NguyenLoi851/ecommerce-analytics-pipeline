@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: fct_order_items
+    description: >
+      Conformed order-items fact table. One row per (order_id, order_item_id).
+      Contains item-level price and freight, plus a derived total_item_value column.
+    columns:
+      - name: order_id
+        description: "Foreign key to fct_orders.order_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+      - name: order_item_id
+        description: "Sequential item number within the order (1-based)."
+        tests: [not_null]
+      - name: product_id
+        description: "Foreign key to dim_products.product_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id
+      - name: seller_id
+        description: "Foreign key to dim_sellers.seller_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_sellers')
+              field: seller_id
+      - name: shipping_limit_date
+        description: "Deadline for the seller to hand the order to a carrier."
+      - name: price
+        description: "Item unit price in BRL."
+        tests: [not_null]
+      - name: freight_value
+        description: "Freight charge for this item in BRL."
+        tests: [not_null]
+      - name: total_item_value
+        description: "price + freight_value."
+        tests: [not_null]
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]

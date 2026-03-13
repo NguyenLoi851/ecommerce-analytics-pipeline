@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: fct_reviews
+    description: >
+      Conformed review fact table. One row per review_id. Deduplicates raw records
+      on review_id (latest ingest wins). Includes a derived review_response_days
+      column measuring seller response time.
+    columns:
+      - name: review_id
+        description: "Unique review identifier."
+        tests:
+          - not_null
+          - unique
+      - name: order_id
+        description: "Foreign key to fct_orders.order_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+      - name: review_score
+        description: "Customer satisfaction score from 1 (worst) to 5 (best)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+      - name: review_comment_title
+        description: "Optional short review title (may be NULL)."
+      - name: review_comment_message
+        description: "Optional full review body text (may be NULL)."
+      - name: review_creation_date
+        description: "Timestamp when the review survey was sent to the customer."
+      - name: review_answer_timestamp
+        description: "Timestamp when the customer submitted the review."
+      - name: review_response_days
+        description: >
+          Calendar days between review_creation_date and review_answer_timestamp.
+          NULL when either timestamp is absent.
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]
