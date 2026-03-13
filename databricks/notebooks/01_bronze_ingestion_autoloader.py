@@ -33,15 +33,31 @@ dbutils.widgets.text("TARGET_SCHEMA", "bronze")
 dbutils.widgets.text("FORCE_RELOAD", "false")
 
 # Base path for Auto Loader metadata (schema + checkpoints).
-# Use a stable location that persists across runs.
-dbutils.widgets.text("AUTOLOADER_STATE_BASE", "dbfs:/tmp/olist_autoloader_state")
+# Prefer S3 so state persists independently from cluster lifecycle.
+# Leave empty to auto-derive: s3://<RAW_BUCKET>/state/autoloader/olist
+dbutils.widgets.text("AUTOLOADER_STATE_BASE", "")
 
 RAW_BUCKET = dbutils.widgets.get("RAW_BUCKET")
 RAW_PREFIX = "raw/olist"
 CATALOG = dbutils.widgets.get("TARGET_CATALOG")
 BRONZE_SCHEMA = dbutils.widgets.get("TARGET_SCHEMA")
 FORCE_RELOAD = dbutils.widgets.get("FORCE_RELOAD").strip().lower() == "true"
-AUTOLOADER_STATE_BASE = dbutils.widgets.get("AUTOLOADER_STATE_BASE").rstrip("/")
+
+_state_base_widget = dbutils.widgets.get("AUTOLOADER_STATE_BASE").strip()
+AUTOLOADER_STATE_BASE = (
+    _state_base_widget
+    if _state_base_widget
+    else f"s3://{RAW_BUCKET}/state/autoloader/olist"
+).rstrip("/")
+
+if not (
+    AUTOLOADER_STATE_BASE.startswith("s3://")
+    or AUTOLOADER_STATE_BASE.startswith("dbfs:/")
+):
+    raise ValueError(
+        "AUTOLOADER_STATE_BASE must start with 's3://' or 'dbfs:/'. "
+        f"Got: {AUTOLOADER_STATE_BASE}"
+    )
 
 BATCH_ID = str(uuid.uuid4())
 INGEST_TS = datetime.now(timezone.utc)
