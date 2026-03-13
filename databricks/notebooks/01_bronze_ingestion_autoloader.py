@@ -171,11 +171,12 @@ def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict
     Auto Loader tracks discovered files through checkpoint state, so reruns skip
     previously discovered files automatically.
     """
-    source_path = f"{S3_BASE_PATH}/{source_file}"
+    source_path = S3_BASE_PATH
     schema_path = autoloader_schema_path(table)
     checkpoint_path = autoloader_checkpoint_path(table)
 
     print(f"\n[{table}] AUTO LOADER incremental ingest from {source_path}")
+    print(f"  File filter     : {source_file}")
     print(f"  Schema path     : {schema_path}")
     print(f"  Checkpoint path : {checkpoint_path}")
 
@@ -189,6 +190,7 @@ def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict
         .option("cloudFiles.format", "csv")
         .option("cloudFiles.schemaLocation", schema_path)
         .option("cloudFiles.inferColumnTypes", "false")
+        .option("pathGlobFilter", source_file)
         .option("header", "true")
         .option("multiLine", "true")
         .option("escape", '"')
@@ -223,7 +225,10 @@ def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict
 
 # COMMAND ----------
 
-# 1) Incremental tables via Auto Loader
+# MAGIC %md ## 1. Orders
+
+# COMMAND ----------
+
 incremental_autoloader_ingest(
     source_file="olist_orders_dataset.csv",
     table="orders",
@@ -236,6 +241,12 @@ incremental_autoloader_ingest(
     },
 )
 
+# COMMAND ----------
+
+# MAGIC %md ## 2. Order Items
+
+# COMMAND ----------
+
 incremental_autoloader_ingest(
     source_file="olist_order_items_dataset.csv",
     table="order_items",
@@ -247,6 +258,12 @@ incremental_autoloader_ingest(
     },
 )
 
+# COMMAND ----------
+
+# MAGIC %md ## 3. Order Payments
+
+# COMMAND ----------
+
 incremental_autoloader_ingest(
     source_file="olist_order_payments_dataset.csv",
     table="order_payments",
@@ -256,6 +273,12 @@ incremental_autoloader_ingest(
         "payment_value": F.col("payment_value").cast(DecimalType(12, 2)),
     },
 )
+
+# COMMAND ----------
+
+# MAGIC %md ## 4. Order Reviews
+
+# COMMAND ----------
 
 incremental_autoloader_ingest(
     source_file="olist_order_reviews_dataset.csv",
@@ -267,17 +290,35 @@ incremental_autoloader_ingest(
     },
 )
 
+# COMMAND ----------
+
+# MAGIC %md ## 5. Customers
+
+# COMMAND ----------
+
 incremental_autoloader_ingest(
     source_file="olist_customers_dataset.csv",
     table="customers",
     cast_exprs={},
 )
 
+# COMMAND ----------
+
+# MAGIC %md ## 6. Sellers
+
+# COMMAND ----------
+
 incremental_autoloader_ingest(
     source_file="olist_sellers_dataset.csv",
     table="sellers",
     cast_exprs={},
 )
+
+# COMMAND ----------
+
+# MAGIC %md ## 7. Products
+
+# COMMAND ----------
 
 incremental_autoloader_ingest(
     source_file="olist_products_dataset.csv",
@@ -293,7 +334,13 @@ incremental_autoloader_ingest(
     },
 )
 
-# 2) Always-full-load tables (as requested)
+# COMMAND ----------
+
+# MAGIC %md ## 8. Geolocation
+# MAGIC *(always full load)*
+
+# COMMAND ----------
+
 full_load_ingest(
     source_file="olist_geolocation_dataset.csv",
     table="geolocation",
@@ -302,6 +349,13 @@ full_load_ingest(
         "geolocation_lng": F.col("geolocation_lng").cast(DoubleType()),
     },
 )
+
+# COMMAND ----------
+
+# MAGIC %md ## 9. Product Category Name Translation
+# MAGIC *(always full load)*
+
+# COMMAND ----------
 
 full_load_ingest(
     source_file="product_category_name_translation.csv",
