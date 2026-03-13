@@ -1,0 +1,195 @@
+name: dbt CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-ci.yml"
+
+# Cancel in-flight CI runs for the same branch on new push
+concurrency:
+  group: dbt-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Job 1: static checks (fast, no Databricks connection needed) ──────────
+  dbt-validate:
+    name: dbt deps + parse (static)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write dbt profiles.yml (offline — no real credentials needed for parse)
+        run: |
+          cat > dbt/profiles.yml <<EOF
+          olist:
+            target: dev
+            outputs:
+              dev:
+                type: databricks
+                host: "placeholder.azuredatabricks.net"
+                http_path: "/sql/1.0/warehouses/placeholder"
+                token: "placeholder"
+                catalog: dev
+                schema: bronze
+                threads: 4
+          EOF
+
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps --profiles-dir .
+
+      - name: dbt parse (schema + ref validation, no cluster needed)
+        working-directory: dbt
+        run: dbt parse --profiles-dir .
+
+  # ── Job 2: live tests against dev warehouse ───────────────────────────────
+  dbt-test:
+    name: dbt test (dev target)
+    runs-on: ubuntu-latest
+    needs: dbt-validate          # only run if parse passed
+    # Skip on forks that won't have the secrets
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+
+    env:
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write dbt profiles.yml from secrets
+        run: |
+          cat > dbt/profiles.yml <<EOF
+          olist:
+            target: dev
+            outputs:
+              dev:
+                type: databricks
+                host: "${{ secrets.DATABRICKS_HOST }}"
+                http_path: "${{ secrets.DATABRICKS_HTTP_PATH }}"
+                token: "${{ secrets.DATABRICKS_TOKEN }}"
+                catalog: dev
+                schema: bronze
+                threads: 4
+          EOF
+
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps --profiles-dir .
+
+      - name: dbt debug (connection check)
+        working-directory: dbt
+        run: dbt debug --profiles-dir . --target dev
+
+      - name: dbt test — staging
+        working-directory: dbt
+        run: dbt test --profiles-dir . --target dev --select staging
+
+      - name: dbt test — silver
+        working-directory: dbt
+        run: dbt test --profiles-dir . --target dev --select silver
+
+      - name: dbt test — gold
+        working-directory: dbt
+        run: dbt test --profiles-dir . --target dev --select gold
+
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-run-artifacts-${{ github.run_id }}
+          path: |
+            dbt/target/manifest.json
+            dbt/target/run_results.json
+          retention-days: 30
+
+  # ── Job 3: prod promotion (main branch only, after tests pass) ────────────
+  dbt-promote-prod:
+    name: dbt run + test (prod target)
+    runs-on: ubuntu-latest
+    needs: dbt-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production        # requires manual approval gate in GitHub Environments
+
+    env:
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write dbt profiles.yml (prod credentials)
+        run: |
+          cat > dbt/profiles.yml <<EOF
+          olist:
+            target: prod
+            outputs:
+              prod:
+                type: databricks
+                host: "${{ secrets.DATABRICKS_HOST_PROD }}"
+                http_path: "${{ secrets.DATABRICKS_HTTP_PATH_PROD }}"
+                token: "${{ secrets.DATABRICKS_TOKEN_PROD }}"
+                catalog: prod
+                schema: bronze
+                threads: 4
+          EOF
+
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps --profiles-dir .
+
+      - name: dbt run — full prod build
+        working-directory: dbt
+        run: dbt run --profiles-dir . --target prod --select staging silver gold
+
+      - name: dbt test — full prod test suite
+        working-directory: dbt
+        run: dbt test --profiles-dir . --target prod --select staging silver gold
+
+      - name: Upload prod dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-prod-artifacts-${{ github.run_id }}
+          path: |
+            dbt/target/manifest.json
+            dbt/target/run_results.json
+          retention-days: 90
