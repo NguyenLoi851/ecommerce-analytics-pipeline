@@ -7,3 +7,9 @@ dbt-databricks==1.11.6
 # scripts/upload_to_s3.py
 kaggle>=1.6
 boto3>=1.34
+
+# ── Databricks CLI (Phase 4) ──────────────────────────────────────────────────
+# Used to create/trigger Databricks Workflows from the command line.
+# databricks configure --token   → enter host + PAT
+# databricks jobs create --json-file databricks/workflows/phase4_workflow.json
+databricks-cli>=0.18
