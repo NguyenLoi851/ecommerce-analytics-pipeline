@@ -208,21 +208,34 @@ ecommerce-analytics-pipeline/
 │   │   └── 01_external_location_s3.sql
 │   └── workflows/
 │       └── phase0_workflow.md
+│   ├── notebooks/
+│   │   ├── 00_phase0_smoke_test.py
+│   │   ├── 01_bronze_ingestion.py        ← Phase 1
+│   │   └── 02_bronze_quality_checks.py  ← Phase 1
+│   ├── sql/
+│   │   ├── 00_unity_catalog_setup.sql
+│   │   └── 01_external_location_s3.sql
+│   └── workflows/
+│       ├── phase0_workflow.md
+│       └── phase1_workflow.json          ← Phase 1
 ├── dbt/
 │   ├── dbt_project.yml
 │   ├── profiles.yml.example
 │   ├── models/
 │   │   ├── staging/
-│   │   │   ├── _sources.yml
-│   │   │   ├── stg_orders.sql
-│   │   │   └── stg_orders.yml
+│   │   │   ├── _sources.yml             ← Phase 1
+│   │   │   ├── stg_orders.sql           ← Phase 1
+│   │   │   └── stg_orders.yml           ← Phase 1
 │   │   ├── silver/
 │   │   └── gold/
 │   ├── tests/
 │   └── macros/
 ├── docs/
 │   ├── architecture.md
-│   └── phase0-runbook.md
+│   ├── phase0-runbook.md
+│   └── phase1-runbook.md                ← Phase 1
+├── scripts/
+│   └── upload_to_s3.py                  ← Phase 1
 ├── terraform/
 │   ├── main.tf
 │   ├── providers.tf
@@ -230,8 +243,8 @@ ecommerce-analytics-pipeline/
 │   ├── outputs.tf
 │   └── terraform.tfvars.example
 └── .github/
-	 └── workflows/
-		  └── dbt-ci.yml
+    └── workflows/
+        └── dbt-ci.yml
 ```
 
 ## 9) Phase 0: What to Run Now
@@ -248,3 +261,27 @@ ecommerce-analytics-pipeline/
 	- `databricks/notebooks/00_phase0_smoke_test.py`
 4. Follow the full execution checklist:
 	- `docs/phase0-runbook.md`
+
+## 10) Phase 1: What to Run Now
+
+> Prerequisite: Phase 0 complete (Unity Catalog + S3 external location validated).
+
+1. Upload Olist CSVs to S3:
+	```bash
+	pip install kaggle boto3
+	python scripts/upload_to_s3.py --bucket <your-raw-bucket> --prefix raw/olist --region us-east-1 --profile <your-project-profile>
+	```
+2. Configure dbt connection:
+	```bash
+	cp dbt/profiles.yml.example dbt/profiles.yml
+	# edit dbt/profiles.yml with your Databricks host, http_path, token
+	cd dbt && dbt debug --profiles-dir .
+	```
+3. Run Bronze ingestion notebook in Databricks:
+	- `databricks/notebooks/01_bronze_ingestion.py`
+	- Set `RAW_BUCKET` to your raw S3 bucket name.
+4. Run quality checks notebook:
+	- `databricks/notebooks/02_bronze_quality_checks.py`
+5. Create Databricks Workflow for Phase 1
+6. Follow the full execution checklist:
+	- `docs/phase1-runbook.md`
