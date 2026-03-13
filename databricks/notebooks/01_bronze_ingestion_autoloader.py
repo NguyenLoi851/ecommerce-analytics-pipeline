@@ -114,7 +114,7 @@ def add_metadata_batch(df: DataFrame, source_file: str) -> DataFrame:
 def add_metadata_stream(df: DataFrame) -> DataFrame:
     return (
         df.withColumn("_ingest_ts", F.current_timestamp())
-        .withColumn("_source_file", F.input_file_name())
+        .withColumn("_source_file", F.col("_metadata.file_path"))
         .withColumn("_batch_id", F.lit(BATCH_ID))
     )
 
