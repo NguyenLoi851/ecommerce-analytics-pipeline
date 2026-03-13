@@ -244,6 +244,14 @@ ecommerce-analytics-pipeline/
 │   │   │   ├── fct_reviews.sql          ← Phase 2
 │   │   │   └── fct_reviews.yml          ← Phase 2
 │   │   └── gold/
+│   │       ├── mart_sales_daily.sql             ← Phase 3
+│   │       ├── mart_sales_daily.yml             ← Phase 3
+│   │       ├── mart_category_performance.sql    ← Phase 3
+│   │       ├── mart_category_performance.yml    ← Phase 3
+│   │       ├── mart_customer_cohorts.sql        ← Phase 3
+│   │       ├── mart_customer_cohorts.yml        ← Phase 3
+│   │       ├── mart_delivery_sla.sql            ← Phase 3
+│   │       └── mart_delivery_sla.yml            ← Phase 3
 │   ├── tests/
 │   └── macros/
 ├── docs/
@@ -386,3 +394,121 @@ SELECT 'fct_payments',          COUNT(*) FROM dev.silver.fct_payments
 UNION ALL
 SELECT 'fct_reviews',           COUNT(*) FROM dev.silver.fct_reviews;
 ```
+
+## 12) Phase 3: What to Run Now
+
+> Prerequisite: Phase 2 complete — Silver models are built and tests are passing.
+
+### Gold marts implemented
+
+| Model | Grain | KPI coverage |
+|---|---|---|
+| `mart_sales_daily` | `order_date` | GMV, AOV, order volume, delivered volume, payment mix by method |
+| `mart_category_performance` | `order_date`, `product_category_name_english` | Category GMV, AOV, item/order volume |
+| `mart_customer_cohorts` | `cohort_month`, `order_month` | Repeat behavior via retention cohorts |
+| `mart_delivery_sla` | `order_date` | On-time delivery rate, late volume, average delay |
+
+### Run the Gold layer
+
+1. Ensure dbt profile is valid:
+   ```bash
+   cd dbt && dbt debug --profiles-dir .
+   ```
+
+2. Install/refresh dependencies:
+   ```bash
+   dbt deps --profiles-dir .
+   ```
+
+3. Build only Gold marts:
+   ```bash
+   dbt run --select gold --profiles-dir .
+   ```
+
+4. Run Gold tests:
+   ```bash
+   dbt test --select gold --profiles-dir .
+   ```
+
+5. Rebuild Silver + Gold together (recommended after logic changes):
+   ```bash
+   dbt run --select silver gold --profiles-dir .
+   dbt test --select silver gold --profiles-dir .
+   ```
+
+### Validate KPI logic in Databricks SQL
+
+Run these reconciliation checks in Databricks SQL editor:
+
+```sql
+-- 1) GMV + order volume reconciliation: mart_sales_daily vs silver base
+with base as (
+	select
+		cast(o.order_purchase_timestamp as date) as order_date,
+		count(distinct o.order_id) as base_order_volume,
+		round(sum(oi.total_item_value), 2) as base_gmv
+	from dev.silver.fct_orders o
+	left join dev.silver.fct_order_items oi
+		on o.order_id = oi.order_id
+	group by cast(o.order_purchase_timestamp as date)
+)
+select
+	m.order_date,
+	m.order_volume,
+	b.base_order_volume,
+	m.gmv,
+	b.base_gmv,
+	round(m.gmv - b.base_gmv, 2) as gmv_diff
+from dev.gold.mart_sales_daily m
+inner join base b
+	on m.order_date = b.order_date
+order by m.order_date desc
+limit 30;
+
+-- 2) Delivery SLA reconciliation: on-time rate from mart vs recompute
+with base as (
+	select
+		cast(order_purchase_timestamp as date) as order_date,
+		count(*) as delivered_orders,
+		count(case when delivery_delay_days <= 0 then 1 end) as on_time_orders
+	from dev.silver.fct_orders
+	where is_delivered = true
+	group by cast(order_purchase_timestamp as date)
+)
+select
+	m.order_date,
+	m.on_time_delivery_rate as mart_on_time_rate,
+	round(b.on_time_orders / nullif(b.delivered_orders, 0), 4) as base_on_time_rate
+from dev.gold.mart_delivery_sla m
+inner join base b
+	on m.order_date = b.order_date
+order by m.order_date desc
+limit 30;
+
+-- 3) Payment mix sanity check: percentages should sum near 1.0
+select
+	order_date,
+	payment_mix_credit_card_pct
+	+ payment_mix_boleto_pct
+	+ payment_mix_voucher_pct
+	+ payment_mix_debit_card_pct
+	+ payment_mix_not_defined_pct as payment_mix_total
+from dev.gold.mart_sales_daily
+order by order_date desc
+limit 30;
+```
+
+### Expose via Databricks SQL Warehouse
+
+1. In Databricks SQL, create a new dashboard.
+2. Add tiles from these base marts:
+   - `dev.gold.mart_sales_daily`
+   - `dev.gold.mart_category_performance`
+   - `dev.gold.mart_customer_cohorts`
+   - `dev.gold.mart_delivery_sla`
+3. Suggested first dashboard tiles:
+   - Daily GMV + AOV trend
+   - Payment mix stacked area (daily)
+   - Top categories by GMV (last 30 days)
+   - Cohort retention heatmap
+   - On-time delivery rate trend

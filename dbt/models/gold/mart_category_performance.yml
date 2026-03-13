@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: mart_category_performance
+    description: >
+      Category-level daily sales performance mart.
+      Grain: one row per (order_date, product_category_name_english).
+    columns:
+      - name: order_date
+        description: "Order purchase date."
+        tests: [not_null]
+      - name: product_category_name_english
+        description: "Product category in English; unknown when missing."
+        tests: [not_null]
+      - name: order_volume
+        description: "Distinct orders containing at least one item from the category."
+        tests: [not_null]
+      - name: item_volume
+        description: "Item rows sold in the category."
+        tests: [not_null]
+      - name: item_revenue
+        description: "Sum of item price in BRL."
+      - name: freight_revenue
+        description: "Sum of freight in BRL."
+      - name: gmv
+        description: "Sum of total item value (price + freight) in BRL."
+      - name: aov
+        description: "Average order value for the category/day slice in BRL."
+      - name: avg_item_value
+        description: "Average total item value in BRL for the category/day slice."
