@@ -134,7 +134,7 @@ def ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> Non
     """
     is_full_load = table in FULL_LOAD_TABLES
 
-    if not is_full_load and is_already_loaded(source_file):
+    if not is_full_load and is_already_loaded(source_file, table):
         print(f"\n[{table}] SKIPPED — '{source_file}' already registered. "
               f"Set FORCE_RELOAD=true to force a reload.")
         return
@@ -188,18 +188,34 @@ def ensure_registry_table() -> None:
     """)
 
 
-def is_already_loaded(source_file: str) -> bool:
+def is_already_loaded(source_file: str, table: str) -> bool:
     """
-    Return True when source_file has a completed entry in the registry AND
-    FORCE_RELOAD is False.  Used to skip tables whose static CSV has not
-    changed since the last successful run.
+    Return True only when all of the following are true:
+      1) FORCE_RELOAD is False
+      2) source_file has a completed registry entry
+      3) the target Bronze table still exists
+
+    This protects against manual table drops: if a table is removed while
+    the registry still has an entry, the load is re-run to recreate it.
     """
     if FORCE_RELOAD:
         return False
+
     count = spark.sql(
         f"SELECT 1 FROM {REGISTRY_TABLE} WHERE source_file = '{source_file}' LIMIT 1"
     ).count()
-    return count > 0
+    if count == 0:
+        return False
+
+    target_table = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
+    if not spark.catalog.tableExists(target_table):
+        print(
+            f"[{table}] Registry has '{source_file}', but target table "
+            f"{target_table} is missing; re-ingesting."
+        )
+        return False
+
+    return True
 
 
 def register_load(source_file: str, table: str, row_count: int) -> None:
