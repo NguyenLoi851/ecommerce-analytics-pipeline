@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: mart_customer_cohorts
+    description: >
+      Customer cohort retention mart based on customer first purchase month.
+      Grain: one row per (cohort_month, order_month).
+    columns:
+      - name: cohort_month
+        description: "Month of customer's first recorded order."
+        tests: [not_null]
+      - name: order_month
+        description: "Month in which cohort activity occurred."
+        tests: [not_null]
+      - name: cohort_month_number
+        description: "Number of months since cohort start (month 0 = acquisition month)."
+        tests: [not_null]
+      - name: cohort_size
+        description: "Number of distinct customers in the cohort."
+        tests: [not_null]
+      - name: active_customers
+        description: "Distinct active customers from the cohort in the given month."
+        tests: [not_null]
+      - name: order_volume
+        description: "Distinct orders from the cohort in the given month."
+        tests: [not_null]
+      - name: retention_rate
+        description: "active_customers / cohort_size."

@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: mart_delivery_sla
+    description: >
+      Delivery SLA performance mart built from delivered orders.
+      Grain: one row per order_date.
+    columns:
+      - name: order_date
+        description: "Order purchase date for delivered orders."
+        tests:
+          - not_null
+          - unique
+      - name: delivered_order_volume
+        description: "Delivered orders count."
+        tests: [not_null]
+      - name: on_time_order_volume
+        description: "Delivered orders with delivery_delay_days <= 0."
+        tests: [not_null]
+      - name: late_order_volume
+        description: "Delivered orders with delivery_delay_days > 0."
+        tests: [not_null]
+      - name: on_time_delivery_rate
+        description: "on_time_order_volume / delivered_order_volume."
+      - name: avg_actual_delivery_days
+        description: "Average actual delivery days."
+      - name: avg_estimated_delivery_days
+        description: "Average estimated delivery days."
+      - name: avg_delivery_delay_days
+        description: "Average delivery delay in days (positive = late)."
+      - name: worst_delivery_delay_days
+        description: "Maximum observed delivery delay in days."

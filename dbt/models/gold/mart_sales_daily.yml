@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: mart_sales_daily
+    description: >
+      Daily sales KPI mart with order volume, GMV, AOV, and payment mix metrics.
+      Grain: one row per order_date.
+    columns:
+      - name: order_date
+        description: "Order purchase date."
+        tests:
+          - not_null
+          - unique
+      - name: order_volume
+        description: "Distinct orders created on the day."
+        tests: [not_null]
+      - name: delivered_order_volume
+        description: "Distinct orders delivered from that day cohort."
+        tests: [not_null]
+      - name: gmv
+        description: "Gross merchandise value (sum of item total value) in BRL."
+      - name: aov
+        description: "Average order value in BRL (gmv / order_volume)."
+      - name: payment_value_total
+        description: "Total payment value in BRL from all payment rows for orders on the day."
+      - name: payment_mix_credit_card_pct
+        description: "Share of payment value paid via credit card."
+      - name: payment_mix_boleto_pct
+        description: "Share of payment value paid via boleto."
+      - name: payment_mix_voucher_pct
+        description: "Share of payment value paid via voucher."
+      - name: payment_mix_debit_card_pct
+        description: "Share of payment value paid via debit card."
+      - name: payment_mix_not_defined_pct
+        description: "Share of payment value tagged as not_defined."
