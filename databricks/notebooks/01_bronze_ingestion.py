@@ -1,7 +1,22 @@
 # Databricks notebook source
 # Purpose: Ingest all Olist CSVs from S3 raw path into Bronze Delta tables.
 #
-# Idempotent: re-running completely replaces the Bronze tables (full load).
+# Incremental strategy (Phase 5):
+#   Each Olist source file contains the complete history for its entity in a single
+#   static CSV.  Once a file has been successfully loaded there is no new data to
+#   pick up, so subsequent runs simply skip it.
+#
+#   Skip logic is enforced via an _ingestion_registry Delta table stored in the
+#   same Bronze schema.  A row is written to the registry only after a successful
+#   load; partial / failed loads are therefore automatically retried on the next run.
+#
+#   Two tables are exempt and always perform a full overwrite:
+#     - geolocation
+#     - product_category_name_translation
+#   These reference datasets are small and may be refreshed independently.
+#
+#   Set FORCE_RELOAD=true to bypass the registry check and reload every table.
+#
 # Each table receives metadata columns: _ingest_ts, _source_file, _batch_id.
 #
 # Prerequisites:
@@ -31,21 +46,34 @@ from pyspark.sql.types import (
 dbutils.widgets.text("RAW_BUCKET",      "e-commercial-pipeline-olist-raw-dev")
 dbutils.widgets.text("TARGET_CATALOG",  "dev")
 dbutils.widgets.text("TARGET_SCHEMA",   "bronze")
+# Set to "true" to bypass the registry check and re-ingest every table from scratch.
+dbutils.widgets.text("FORCE_RELOAD",    "false")
 
 RAW_BUCKET    = dbutils.widgets.get("RAW_BUCKET")
 RAW_PREFIX    = "raw/olist"
 CATALOG       = dbutils.widgets.get("TARGET_CATALOG")
 BRONZE_SCHEMA = dbutils.widgets.get("TARGET_SCHEMA")
+FORCE_RELOAD  = dbutils.widgets.get("FORCE_RELOAD").strip().lower() == "true"
 
 BATCH_ID = str(uuid.uuid4())
 INGEST_TS = datetime.now(timezone.utc)
 
 S3_BASE_PATH = f"s3://{RAW_BUCKET}/{RAW_PREFIX}"
 
-print(f"Batch ID  : {BATCH_ID}")
-print(f"Ingest TS : {INGEST_TS.isoformat()}")
-print(f"Target    : {CATALOG}.{BRONZE_SCHEMA}")
-print(f"Source    : {S3_BASE_PATH}")
+# ---------------------------------------------------------------------------
+# Tables that always perform a full overwrite regardless of the registry.
+# Every other table loads once and is skipped on subsequent runs.
+# ---------------------------------------------------------------------------
+FULL_LOAD_TABLES = {"geolocation", "product_category_name_translation"}
+
+REGISTRY_TABLE = f"{CATALOG}.{BRONZE_SCHEMA}._ingestion_registry"
+
+print(f"Batch ID     : {BATCH_ID}")
+print(f"Ingest TS    : {INGEST_TS.isoformat()}")
+print(f"Target       : {CATALOG}.{BRONZE_SCHEMA}")
+print(f"Source       : {S3_BASE_PATH}")
+print(f"Force reload : {FORCE_RELOAD}")
+print(f"Full-load    : {sorted(FULL_LOAD_TABLES)}")
 
 # COMMAND ----------
 # MAGIC %md ## Helper functions
@@ -79,10 +107,7 @@ def add_metadata(df: DataFrame, source_file: str) -> DataFrame:
 
 
 def write_bronze(df: DataFrame, table: str) -> None:
-    """
-    Write DataFrame to a Unity Catalog Bronze Delta table.
-    Uses REPLACE to make the load idempotent (full-load pattern for Phase 1).
-    """
+    """Write DataFrame to a Unity Catalog Bronze Delta table (full overwrite)."""
     full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
     print(f"  Writing {df.count():,} rows -> {full_name}")
     (
@@ -96,11 +121,31 @@ def write_bronze(df: DataFrame, table: str) -> None:
 
 
 def ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> None:
-    """End-to-end ingest: read CSV -> cast -> add metadata -> write Delta."""
-    path = f"{S3_BASE_PATH}/{source_file}"
-    print(f"\n[{table}] Reading {path} ...")
+    """
+    End-to-end ingest: read CSV -> cast -> add metadata -> write Delta.
 
-    raw = read_csv(path, **csv_options)
+    Incremental logic (Phase 5)
+    ---------------------------
+    * Tables in FULL_LOAD_TABLES always overwrite and are never skipped.
+      The registry is still updated so the run history remains visible.
+    * All other tables are skipped when source_file already appears in the
+      registry — meaning the file has been successfully loaded before.
+      Pass FORCE_RELOAD=true (widget) to bypass this check for the current run.
+    """
+    is_full_load = table in FULL_LOAD_TABLES
+
+    if not is_full_load and is_already_loaded(source_file):
+        print(f"\n[{table}] SKIPPED — '{source_file}' already registered. "
+              f"Set FORCE_RELOAD=true to force a reload.")
+        return
+
+    if is_full_load:
+        print(f"\n[{table}] FULL LOAD (always-overwrite) — reading {source_file} ...")
+    else:
+        print(f"\n[{table}] First load — reading {source_file} ...")
+
+    path = f"{S3_BASE_PATH}/{source_file}"
+    raw  = read_csv(path, **csv_options)
 
     # Apply explicit casts; keep all other columns as StringType.
     casted = raw
@@ -108,7 +153,88 @@ def ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> Non
         casted = casted.withColumn(col_name, col_expr)
 
     enriched = add_metadata(casted, source_file)
+    row_count = enriched.count()
     write_bronze(enriched, table)
+
+    # Record the successful load (MERGE keeps one row per file in the registry).
+    register_load(source_file, table, row_count)
+
+
+# COMMAND ----------
+# MAGIC %md ## Ingestion registry (Phase 5)
+
+# COMMAND ----------
+
+
+def ensure_registry_table() -> None:
+    """
+    Create the ingestion registry Delta table if it does not yet exist.
+
+    The registry tracks which source files have been successfully loaded so
+    that subsequent runs can skip them automatically.  A row is written only
+    after a successful write_bronze call, so failed or interrupted loads are
+    never marked as done and will be retried on the next run.
+    """
+    spark.sql(f"""
+        CREATE TABLE IF NOT EXISTS {REGISTRY_TABLE} (
+            source_file  STRING    NOT NULL COMMENT 'CSV filename relative to the S3 raw prefix',
+            table_name   STRING    NOT NULL COMMENT 'Bronze Delta table name',
+            loaded_at    TIMESTAMP          COMMENT 'Timestamp of the most recent successful load',
+            batch_id     STRING             COMMENT 'BATCH_ID of the run that loaded this file',
+            row_count    LONG               COMMENT 'Number of rows written in the last load'
+        )
+        USING DELTA
+        COMMENT 'Tracks successfully completed Bronze ingestion loads (Phase 5 incremental).'
+    """)
+
+
+def is_already_loaded(source_file: str) -> bool:
+    """
+    Return True when source_file has a completed entry in the registry AND
+    FORCE_RELOAD is False.  Used to skip tables whose static CSV has not
+    changed since the last successful run.
+    """
+    if FORCE_RELOAD:
+        return False
+    count = spark.sql(
+        f"SELECT 1 FROM {REGISTRY_TABLE} WHERE source_file = '{source_file}' LIMIT 1"
+    ).count()
+    return count > 0
+
+
+def register_load(source_file: str, table: str, row_count: int) -> None:
+    """
+    Upsert a registry entry for source_file after a successful load.
+
+    Uses MERGE so that re-runs triggered by FORCE_RELOAD update the existing
+    record (one row per file) rather than appending duplicates.
+    """
+    spark.sql(f"""
+        MERGE INTO {REGISTRY_TABLE} AS tgt
+        USING (
+            SELECT
+                '{source_file}'                                  AS source_file,
+                '{table}'                                        AS table_name,
+                CAST('{INGEST_TS.isoformat()}' AS TIMESTAMP)     AS loaded_at,
+                '{BATCH_ID}'                                     AS batch_id,
+                CAST({row_count} AS LONG)                        AS row_count
+        ) AS src
+        ON tgt.source_file = src.source_file
+        WHEN MATCHED THEN
+            UPDATE SET
+                table_name = src.table_name,
+                loaded_at  = src.loaded_at,
+                batch_id   = src.batch_id,
+                row_count  = src.row_count
+        WHEN NOT MATCHED THEN
+            INSERT (source_file, table_name, loaded_at, batch_id, row_count)
+            VALUES (src.source_file, src.table_name, src.loaded_at, src.batch_id, src.row_count)
+    """)
+
+
+# Initialise the registry table before any ingest calls.
+ensure_registry_table()
+print(f"Registry  : {REGISTRY_TABLE} — ready.")
 
 
 # COMMAND ----------
@@ -217,6 +343,7 @@ ingest(
 
 # COMMAND ----------
 # MAGIC %md ## 8. Geolocation
+# MAGIC *(always full load)*
 
 # COMMAND ----------
 
@@ -231,6 +358,7 @@ ingest(
 
 # COMMAND ----------
 # MAGIC %md ## 9. Product Category Name Translation
+# MAGIC *(always full load)*
 
 # COMMAND ----------
 
@@ -255,9 +383,20 @@ print(f"\n{'Table':<45} {'Row Count':>12}")
 print("-" * 60)
 for t in tables:
     full = f"{CATALOG}.{BRONZE_SCHEMA}.{t}"
-    cnt = spark.table(full).count()
-    print(f"{full:<45} {cnt:>12,}")
+    try:
+        cnt = spark.table(full).count()
+        print(f"{full:<45} {cnt:>12,}")
+    except Exception:
+        print(f"{full:<45} {'(not found)':>12}")
 
-print(f"\nBatch ID  : {BATCH_ID}")
+print()
+print(f"Batch ID  : {BATCH_ID}")
 print(f"Ingest TS : {INGEST_TS.isoformat()}")
+print(f"Registry  : {REGISTRY_TABLE}")
+print()
+
+# Show current registry state for observability.
+print("Ingestion registry (Phase 5):")
+spark.table(REGISTRY_TABLE).orderBy("table_name").show(truncate=False)
+
 print("Bronze ingestion complete.")
