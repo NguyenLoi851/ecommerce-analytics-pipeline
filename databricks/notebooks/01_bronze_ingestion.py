@@ -27,11 +27,15 @@ from pyspark.sql.types import (
 
 # COMMAND ----------
 
-# Update these to match your environment. Use notebook widgets or job parameters in production.
-RAW_BUCKET    = "e-commercial-pipeline-olist-raw-dev"   # e.g. "olist-raw-dev"
+# Read from job parameters (widgets); fall back to dev defaults for interactive runs.
+dbutils.widgets.text("RAW_BUCKET",      "e-commercial-pipeline-olist-raw-dev")
+dbutils.widgets.text("TARGET_CATALOG",  "dev")
+dbutils.widgets.text("TARGET_SCHEMA",   "bronze")
+
+RAW_BUCKET    = dbutils.widgets.get("RAW_BUCKET")
 RAW_PREFIX    = "raw/olist"
-CATALOG       = "dev"
-BRONZE_SCHEMA = "bronze"
+CATALOG       = dbutils.widgets.get("TARGET_CATALOG")
+BRONZE_SCHEMA = dbutils.widgets.get("TARGET_SCHEMA")
 
 BATCH_ID = str(uuid.uuid4())
 INGEST_TS = datetime.now(timezone.utc)
