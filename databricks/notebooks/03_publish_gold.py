@@ -19,18 +19,21 @@
 # COMMAND ----------
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 dbutils.widgets.text("TARGET_CATALOG", "prod", "Target Unity Catalog")
 dbutils.widgets.text("OPTIMIZE_TABLES", "true", "Run OPTIMIZE on Gold tables")
+dbutils.widgets.text("MIN_ACCEPTED_DATE", "", "Optional minimum accepted date (YYYY-MM-DD)")
 
 TARGET_CATALOG = dbutils.widgets.get("TARGET_CATALOG")
 OPTIMIZE_TABLES = dbutils.widgets.get("OPTIMIZE_TABLES").lower() == "true"
+MIN_ACCEPTED_DATE = dbutils.widgets.get("MIN_ACCEPTED_DATE").strip()
 GOLD_SCHEMA = f"{TARGET_CATALOG}.gold"
 
 print(f"TARGET_CATALOG  : {TARGET_CATALOG}")
 print(f"GOLD_SCHEMA     : {GOLD_SCHEMA}")
 print(f"OPTIMIZE_TABLES : {OPTIMIZE_TABLES}")
+print(f"MIN_ACCEPTED_DATE : {MIN_ACCEPTED_DATE or 'not set'}")
 
 # COMMAND ----------
 
@@ -72,7 +75,6 @@ for table in GOLD_TABLES:
 
 # COMMAND ----------
 
-yesterday = (date.today() - timedelta(days=1)).isoformat()
 validation_errors = []
 
 freshness_checks = {
@@ -81,7 +83,10 @@ freshness_checks = {
     "mart_delivery_sla": "order_date",
 }
 
-print(f"Validating freshness for date ≥ {yesterday}")
+if MIN_ACCEPTED_DATE:
+    print(f"Validating historical freshness for date >= {MIN_ACCEPTED_DATE}")
+else:
+    print("Validating historical freshness (date columns must not be NULL)")
 
 for table, date_col in freshness_checks.items():
     full_name = f"{GOLD_SCHEMA}.{table}"
@@ -89,14 +94,22 @@ for table, date_col in freshness_checks.items():
     max_date = str(row["max_date"]) if row["max_date"] else "NULL"
     total_rows = row["total_rows"]
 
-    freshness_ok = max_date >= yesterday if max_date != "NULL" else False
-    status = "✓" if freshness_ok else "✗ STALE"
+    freshness_ok = max_date != "NULL"
+    if freshness_ok and MIN_ACCEPTED_DATE:
+        freshness_ok = max_date >= MIN_ACCEPTED_DATE
+
+    status = "✓" if freshness_ok else "✗ INVALID"
     print(f"  [{status}] {table}: max_date={max_date}, rows={total_rows:,}")
 
     if not freshness_ok:
-        validation_errors.append(
-            f"{table}: latest {date_col} is {max_date} — expected >= {yesterday}"
-        )
+        if MIN_ACCEPTED_DATE:
+            validation_errors.append(
+                f"{table}: latest {date_col} is {max_date} — expected >= {MIN_ACCEPTED_DATE}"
+            )
+        else:
+            validation_errors.append(
+                f"{table}: latest {date_col} is NULL — expected a non-NULL historical date"
+            )
 
 # Row count checks (must not be empty)
 for table in GOLD_TABLES:

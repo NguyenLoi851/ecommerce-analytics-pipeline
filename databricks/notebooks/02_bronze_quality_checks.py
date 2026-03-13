@@ -22,38 +22,43 @@ FAIL_ON_QUALITY_ERROR = dbutils.widgets.get("FAIL_ON_QUALITY_ERROR").lower() == 
 
 failures: list[str] = []
 
+print(f"Target environment: {CATALOG}.{BRONZE_SCHEMA}")
+
 
 def tbl(name: str):
     return spark.table(f"{CATALOG}.{BRONZE_SCHEMA}.{name}")
 
 
 def check_row_count(table: str, min_rows: int = 1) -> None:
+    table_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
     cnt = tbl(table).count()
     status = "PASS" if cnt >= min_rows else "FAIL"
-    msg = f"[{status}] {table}: row_count={cnt:,} (min={min_rows:,})"
+    msg = f"[{status}] {table_name}: row_count={cnt:,} (min={min_rows:,})"
     print(msg)
     if status == "FAIL":
         failures.append(msg)
 
 
 def check_nulls(table: str, pk_cols: list[str]) -> None:
+    table_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
     df = tbl(table)
     for col in pk_cols:
         null_cnt = df.filter(F.col(col).isNull()).count()
         status = "PASS" if null_cnt == 0 else "FAIL"
-        msg = f"[{status}] {table}.{col}: null_count={null_cnt:,}"
+        msg = f"[{status}] {table_name}.{col}: null_count={null_cnt:,}"
         print(msg)
         if status == "FAIL":
             failures.append(msg)
 
 
 def check_duplicates(table: str, pk_cols: list[str]) -> None:
+    table_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
     df = tbl(table)
     total = df.count()
     distinct = df.select(*pk_cols).distinct().count()
     dups = total - distinct
     status = "PASS" if dups == 0 else "FAIL"
-    msg = f"[{status}] {table} ({', '.join(pk_cols)}): duplicate_count={dups:,}"
+    msg = f"[{status}] {table_name} ({', '.join(pk_cols)}): duplicate_count={dups:,}"
     print(msg)
     if status == "FAIL":
         failures.append(msg)
