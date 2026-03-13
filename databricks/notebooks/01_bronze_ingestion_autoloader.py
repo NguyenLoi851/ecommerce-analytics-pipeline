@@ -206,6 +206,7 @@ def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict
     query = (
         stream_df.writeStream.format("delta")
         .outputMode("append")
+        .option("mergeSchema", "true")
         .option("checkpointLocation", checkpoint_path)
         .trigger(availableNow=True)
         .toTable(full_name(table))
