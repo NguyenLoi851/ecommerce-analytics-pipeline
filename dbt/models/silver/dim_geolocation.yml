@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_geolocation
+    description: >
+      One canonical centroid row per Brazilian ZIP code prefix.
+      Aggregated from the raw geolocation table which may hold many lat/lng
+      sample points per prefix. Centroid coordinates are rounded to 6 decimal places.
+    columns:
+      - name: geolocation_zip_code_prefix
+        description: "5-digit ZIP code prefix (deduplicated)."
+        tests:
+          - not_null
+          - unique
+      - name: geolocation_lat
+        description: "Average latitude for the ZIP prefix centroid."
+        tests: [not_null]
+      - name: geolocation_lng
+        description: "Average longitude for the ZIP prefix centroid."
+        tests: [not_null]
+      - name: geolocation_city
+        description: "Representative city name for the ZIP prefix (lower-cased)."
+        tests: [not_null]
+      - name: geolocation_state
+        description: "Brazilian state code, 2-char upper-case."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [
+                'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS',
+                'MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC',
+                'SE','SP','TO'
+              ]

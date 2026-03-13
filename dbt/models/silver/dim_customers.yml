@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      Conformed customer dimension. One row per customer_id.
+      Deduplicates the raw bronze table on customer_id by keeping the latest
+      ingested record for each key.
+    columns:
+      - name: customer_id
+        description: "Order-level customer surrogate from the source system."
+        tests:
+          - not_null
+          - unique
+      - name: customer_unique_id
+        description: "Real-world customer identifier (can appear across multiple customer_id values)."
+        tests:
+          - not_null
+      - name: customer_zip_code_prefix
+        description: "5-digit ZIP code prefix."
+        tests: [not_null]
+      - name: customer_city
+        description: "Customer city (lower-cased)."
+        tests: [not_null]
+      - name: customer_state
+        description: "Brazilian state code, 2-char upper-case (e.g. SP, RJ)."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [
+                'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS',
+                'MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC',
+                'SE','SP','TO'
+              ]
+      - name: _ingest_ts
+        tests: [not_null]
+      - name: _batch_id
+        tests: [not_null]
