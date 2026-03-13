@@ -116,7 +116,7 @@ Build a production-style analytics pipeline that:
 	- ingest -> dbt run -> dbt test -> publish.
 2. Configure alerting (failures/SLA delays).
 3. Set up GitHub Actions CI:
-	- `dbt deps`, `dbt parse`, `dbt test` (dev target).
+	- `dbt deps`, `dbt parse`, `dbt test` (dev target), prod deploy gate.
 4. Define deployment strategy (`dev` -> `prod`).
 5. Add operational runbook and backfill strategy.
 
@@ -211,13 +211,15 @@ ecommerce-analytics-pipeline/
 │   ├── notebooks/
 │   │   ├── 00_phase0_smoke_test.py
 │   │   ├── 01_bronze_ingestion.py        ← Phase 1
-│   │   └── 02_bronze_quality_checks.py  ← Phase 1
+│   │   ├── 02_bronze_quality_checks.py  ← Phase 1
+│   │   └── 03_publish_gold.py           ← Phase 4
 │   ├── sql/
 │   │   ├── 00_unity_catalog_setup.sql
 │   │   └── 01_external_location_s3.sql
 │   └── workflows/
 │       ├── phase0_workflow.md
-│       └── phase1_workflow.json          ← Phase 1
+│       ├── phase1_workflow.json          ← Phase 1
+│       └── phase4_workflow.json         ← Phase 4
 ├── dbt/
 │   ├── dbt_project.yml
 │   ├── profiles.yml.example
@@ -257,7 +259,9 @@ ecommerce-analytics-pipeline/
 ├── docs/
 │   ├── architecture.md
 │   ├── phase0-runbook.md
-│   └── phase1-runbook.md                ← Phase 1
+│   ├── phase1-runbook.md                ← Phase 1
+│   ├── phase4-runbook.md                ← Phase 4
+│   └── deployment-strategy.md          ← Phase 4
 ├── scripts/
 │   └── upload_to_s3.py                  ← Phase 1
 ├── terraform/
@@ -268,7 +272,7 @@ ecommerce-analytics-pipeline/
 │   └── terraform.tfvars.example
 └── .github/
     └── workflows/
-        └── dbt-ci.yml
+        └── dbt-ci.yml                   ← Phase 4
 ```
 
 ## 9) Phase 0: What to Run Now
@@ -512,3 +516,85 @@ limit 30;
    - Top categories by GMV (last 30 days)
    - Cohort retention heatmap
    - On-time delivery rate trend
+
+## 13) Phase 4: What to Run Now
+
+> Prerequisite: Phase 3 complete — Gold marts built and tests passing in `dev`.
+
+### A — Configure GitHub Secrets and Environment approval gate
+
+1. Add these secrets under **Settings → Secrets and variables → Actions**:
+
+	| Secret | Description |
+	|---|---|
+	| `DATABRICKS_HOST` | Dev workspace host |
+	| `DATABRICKS_HTTP_PATH` | Dev SQL Warehouse HTTP path |
+	| `DATABRICKS_TOKEN` | Dev Personal Access Token |
+	| `DATABRICKS_HOST_PROD` | Prod workspace host |
+	| `DATABRICKS_HTTP_PATH_PROD` | Prod SQL Warehouse HTTP path |
+	| `DATABRICKS_TOKEN_PROD` | Prod Personal Access Token |
+
+2. Create a **`production`** GitHub Environment with required reviewers:
+	- **Settings → Environments → New environment** → `production` → add reviewers.
+
+3. Enable branch protection on `main`:
+	- Require PRs, require status checks (`dbt-validate`, `dbt-test`), require 1 review.
+
+### B — Validate the CI Pipeline
+
+```bash
+git checkout -b feature/phase4-ci-validation
+# make a trivial edit (e.g. add a comment to a .sql file)
+git commit -am "ci: validate phase 4 ci pipeline"
+git push origin feature/phase4-ci-validation
+```
+
+Open a PR and confirm both CI jobs pass before merging.
+
+### C — Create the Production Databricks Workflow
+
+1. In Databricks UI: **Workflows → Create job → ⋮ → Edit JSON**.
+2. Paste `databricks/workflows/phase4_workflow.json`.
+3. Replace all `<placeholder>` values (GitHub username, SQL Warehouse ID, bucket name, emails).
+4. Click **Create**.
+5. Run manually once (**Run now**) to validate the full DAG before enabling the schedule.
+
+### D — Enable the Daily Schedule
+
+Once the manual run succeeds:
+
+1. Open the Workflow → **Schedule** → Daily at **03:00 UTC** (or preferred time).
+2. Set pause status to **Unpaused** → Save.
+
+### E — Test Backfill
+
+To re-process a historical date range:
+
+```bash
+databricks jobs run-now \
+  --job-id <job-id> \
+  --job-parameters '{"backfill_start_date": "2017-01-01", "backfill_end_date": "2018-12-31"}'
+```
+
+### F — Post-Deploy Verification
+
+Run these queries in Databricks SQL after the first production run:
+
+```sql
+-- Gold mart freshness
+SELECT MAX(order_date) AS latest_date FROM prod.gold.mart_sales_daily;
+
+-- Row counts
+SELECT 'mart_sales_daily'          AS model, COUNT(*) AS rows FROM prod.gold.mart_sales_daily
+UNION ALL
+SELECT 'mart_category_performance',           COUNT(*) FROM prod.gold.mart_category_performance
+UNION ALL
+SELECT 'mart_customer_cohorts',               COUNT(*) FROM prod.gold.mart_customer_cohorts
+UNION ALL
+SELECT 'mart_delivery_sla',                   COUNT(*) FROM prod.gold.mart_delivery_sla;
+```
+
+### G — Read the full runbooks
+
+- `docs/phase4-runbook.md` — step-by-step setup, alerting configuration, failure scenarios.
+- `docs/deployment-strategy.md` — branch strategy, CI gates, prod promotion, rollback procedure.
