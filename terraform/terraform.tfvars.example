@@ -3,7 +3,5 @@ aws_profile         = "default"
 environment         = "dev"
 
 raw_bucket_name     = "your-olist-raw-bucket"
-curated_bucket_name = "your-olist-curated-bucket"
-logs_bucket_name    = "your-olist-logs-bucket"
 
 force_destroy       = false

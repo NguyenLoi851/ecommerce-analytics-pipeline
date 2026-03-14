@@ -80,7 +80,7 @@ Common failures and how to resolve them.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `terraform apply` fails — AccessDenied | Local IAM user lacks S3 or IAM permissions | Attach `AmazonS3FullAccess` and `IAMFullAccess` to the IAM user running Terraform |
-| Bucket already exists error | Bucket name collides with another AWS account's bucket | Update `raw_bucket_name` / `curated_bucket_name` in `terraform.tfvars` to a unique name |
+| Bucket already exists error | Bucket name collides with another AWS account's bucket | Update `raw_bucket_name` in `terraform.tfvars` to a unique name |
 | `terraform plan` shows unexpected destroy | `terraform.tfstate` out of sync | Run `terraform refresh` before `plan` |
 
 ---

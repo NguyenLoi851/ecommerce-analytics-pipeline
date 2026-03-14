@@ -9,7 +9,7 @@ This runbook is the executable guide for Phase 0 foundation.
 - Workspace admin access in Databricks.
 - GitHub account and repository access.
 
-## Step 1 — Create S3 Buckets (Terraform)
+## Step 1 — Create S3 Bucket (Terraform)
 
 Use Terraform in [terraform/](../terraform/) as the default provisioning method.
 
@@ -22,8 +22,6 @@ Edit `terraform.tfvars` values:
 - `aws_region`
 - `aws_profile` (optional; remove or set `null` if you use env credentials)
 - `raw_bucket_name`
-- `curated_bucket_name`
-- `logs_bucket_name`
 
 Then run:
 
@@ -49,7 +47,6 @@ Expected result:
 Update placeholders in [databricks/sql/01_external_location_s3.sql](../databricks/sql/01_external_location_s3.sql):
 - `<databricks-s3-access-role-arn>`
 - `<your-raw-bucket>`
-- `<your-curated-bucket>`
 
 Then run it in Databricks SQL Editor.
 

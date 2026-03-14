@@ -100,18 +100,12 @@ SCD Type 2 variants available: `dim_customers_scd2`, `dim_products_scd2` (snapsh
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-      "Resource": [
-        "arn:aws:s3:::<your-raw-bucket>",
-        "arn:aws:s3:::<your-curated-bucket>"
-      ]
+      "Resource": ["arn:aws:s3:::<your-raw-bucket>"]
     },
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-      "Resource": [
-        "arn:aws:s3:::<your-raw-bucket>/*",
-        "arn:aws:s3:::<your-curated-bucket>/*"
-      ]
+      "Resource": ["arn:aws:s3:::<your-raw-bucket>/*"]
     }
   ]
 }

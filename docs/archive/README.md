@@ -65,8 +65,7 @@ Build a production-style analytics pipeline that:
 3. Create catalogs/schemas:
 	- `dev.bronze`, `dev.silver`, `dev.gold`
 	- `prod.bronze`, `prod.silver`, `prod.gold`
-4. ✅ Create S3 buckets (or one bucket with prefixes) with Terraform:
-	- `olist-raw`, `olist-curated`, `olist-logs`
+4. ✅ Create the raw S3 bucket with Terraform.
 5. Configure Databricks access to S3 (IAM role + storage credential + external location).
 6. Create repo structure and connect Databricks Repos to GitHub.
 
@@ -159,7 +158,7 @@ Use this exact sequence for your first successful run:
 5. Connect GitHub in Databricks user settings (PAT or GitHub App).
 6. Clone this repo into Databricks Repos.
 7. Create catalogs/schemas for `dev` and `prod`.
-8. Create S3 buckets (`raw`, `curated`, `logs`) with Terraform.
+8. Create the raw S3 bucket with Terraform.
 9. Create IAM role for Databricks Unity Catalog access to S3 buckets.
 10. Configure external locations in Databricks SQL.
 11. Test notebook read from S3 and write to Delta.
@@ -172,19 +171,18 @@ Use this exact sequence for your first successful run:
 
 If this is your first S3 + Databricks setup, use this exact flow:
 
-1. Create the S3 buckets with Terraform (`terraform/`).
+1. Create the raw S3 bucket with Terraform (`terraform/`).
 2. In Databricks Account Console, open **Data** -> **Credentials** and start creating an AWS IAM role-based credential.
 3. Databricks will show trust-policy requirements (AWS principal + external ID). Copy these values.
 4. In AWS IAM, create a role (for example `databricks-olist-s3-role`) and paste the trust policy from Databricks.
 5. Attach an S3 policy to this IAM role with at least:
 	- bucket-level: `s3:ListBucket`, `s3:GetBucketLocation`
 	- object-level: `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`
-	- resources for both raw and curated bucket ARNs (bucket + `/*`).
+	- resources for the raw bucket ARN (bucket + `/*`).
 6. Copy the IAM role ARN.
 7. Run `databricks/sql/01_external_location_s3.sql` and replace placeholders:
 	- `<databricks-s3-access-role-arn>`
 	- `<your-raw-bucket>`
-	- `<your-curated-bucket>`
 8. Validate access with the smoke test notebook.
 
 Example S3 policy (replace bucket names):
@@ -196,18 +194,12 @@ Example S3 policy (replace bucket names):
 		{
 			"Effect": "Allow",
 			"Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-			"Resource": [
-				"arn:aws:s3:::<your-raw-bucket>",
-				"arn:aws:s3:::<your-curated-bucket>"
-			]
+			"Resource": ["arn:aws:s3:::<your-raw-bucket>"]
 		},
 		{
 			"Effect": "Allow",
 			"Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-			"Resource": [
-				"arn:aws:s3:::<your-raw-bucket>/*",
-				"arn:aws:s3:::<your-curated-bucket>/*"
-			]
+			"Resource": ["arn:aws:s3:::<your-raw-bucket>/*"]
 		}
 	]
 }
