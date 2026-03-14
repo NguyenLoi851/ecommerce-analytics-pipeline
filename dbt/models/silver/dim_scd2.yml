@@ -1,0 +1,100 @@
+version: 2
+
+models:
+  - name: dim_customers_scd2
+    description: >
+      Slowly changing dimension Type 2 for customers. One row per customer version,
+      with validity windows derived from the dbt snapshot history.
+    columns:
+      - name: customer_id
+        description: "Business key for the customer dimension version chain."
+        tests: [not_null]
+      - name: customer_unique_id
+        description: "Real-world customer identifier from the source system."
+        tests: [not_null]
+      - name: valid_from
+        description: "Timestamp when this dimension version became active."
+        tests: [not_null]
+      - name: valid_to
+        description: "Timestamp when this dimension version expired; NULL means current."
+      - name: is_current
+        description: "True when this version is the active/current customer record."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+  - name: dim_products_scd2
+    description: >
+      Slowly changing dimension Type 2 for products. One row per product version,
+      with validity windows derived from the dbt snapshot history.
+    columns:
+      - name: product_id
+        description: "Business key for the product dimension version chain."
+        tests: [not_null]
+      - name: product_category_name_english
+        description: "English category name for the versioned product record."
+        tests: [not_null]
+      - name: valid_from
+        description: "Timestamp when this dimension version became active."
+        tests: [not_null]
+      - name: valid_to
+        description: "Timestamp when this dimension version expired; NULL means current."
+      - name: is_current
+        description: "True when this version is the active/current product record."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+  - name: dim_customers_scd2_merge
+    description: >
+      Databricks MERGE-based SCD Type 2 customer dimension.
+      Uses incremental merge + post-hook MERGE to close old versions and insert
+      changed/new current versions.
+    columns:
+      - name: scd_id
+        description: "Technical unique key for each SCD version row."
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Business key for the customer version chain."
+        tests: [not_null]
+      - name: valid_from
+        description: "Timestamp when this dimension version became active."
+        tests: [not_null]
+      - name: valid_to
+        description: "Timestamp when this version expired; NULL means current."
+      - name: is_current
+        description: "True when this version is currently active."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+
+  - name: dim_products_scd2_merge
+    description: >
+      Databricks MERGE-based SCD Type 2 product dimension.
+      Uses incremental merge + post-hook MERGE to close old versions and insert
+      changed/new current versions.
+    columns:
+      - name: scd_id
+        description: "Technical unique key for each SCD version row."
+        tests: [not_null, unique]
+      - name: product_id
+        description: "Business key for the product version chain."
+        tests: [not_null]
+      - name: valid_from
+        description: "Timestamp when this dimension version became active."
+        tests: [not_null]
+      - name: valid_to
+        description: "Timestamp when this version expired; NULL means current."
+      - name: is_current
+        description: "True when this version is currently active."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
