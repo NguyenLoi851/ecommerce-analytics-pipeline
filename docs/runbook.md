@@ -95,16 +95,22 @@ python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Configure your AWS profile if needed
-aws configure --profile <your-project-profile>
-aws sts get-caller-identity --profile <your-project-profile>
+# Configure Kaggle API authentication
+# 1) In Kaggle: Account -> API -> Create New Token
+# 2) Move downloaded kaggle.json to ~/.kaggle/kaggle.json
+mkdir -p ~/.kaggle
+mv ~/Downloads/kaggle.json ~/.kaggle/kaggle.json
+chmod 600 ~/.kaggle/kaggle.json
+
+# Quick auth check
+kaggle datasets list -s olistbr/brazilian-ecommerce
 
 # Upload CSVs to S3
 python scripts/upload_to_s3.py \
   --bucket <your-raw-bucket> \
   --prefix raw/olist \
   --region us-east-1 \
-  --profile <your-project-profile>
+  --profile <your-project-profile>   # optional if already using default AWS credentials
 ```
 
 Expected files in S3 after upload:
