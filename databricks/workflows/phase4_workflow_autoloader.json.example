@@ -82,10 +82,32 @@
       "max_retries": 0
     },
     {
+      "task_key": "dbt_snapshot_silver_scd2",
+      "description": "dbt snapshot — capture SCD2 history for Silver dimensions",
+      "depends_on": [
+        { "task_key": "bronze_quality_checks" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt deps",
+          "dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "silver",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 3600,
+      "max_retries": 1,
+      "min_retry_interval_millis": 300000
+    },
+    {
       "task_key": "dbt_run_silver",
       "description": "dbt run — build staging + silver models",
       "depends_on": [
-        { "task_key": "bronze_quality_checks" }
+        { "task_key": "dbt_snapshot_silver_scd2" }
       ],
       "dbt_task": {
         "project_directory": "dbt",
@@ -124,10 +146,52 @@
       "max_retries": 0
     },
     {
+      "task_key": "dbt_run_scd2_merge",
+      "description": "dbt run — build Databricks MERGE SCD2 Silver models",
+      "depends_on": [
+        { "task_key": "dbt_run_silver" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "silver",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 3600,
+      "max_retries": 1,
+      "min_retry_interval_millis": 300000
+    },
+    {
+      "task_key": "dbt_test_scd2_merge",
+      "description": "dbt test — validate Databricks MERGE SCD2 Silver models",
+      "depends_on": [
+        { "task_key": "dbt_run_scd2_merge" }
+      ],
+      "dbt_task": {
+        "project_directory": "dbt",
+        "commands": [
+          "dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"prod\"}'"
+        ],
+        "schema": "silver",
+        "catalog": "prod",
+        "warehouse_id": "<your-sql-warehouse-id>",
+        "source": "GIT"
+      },
+      "environment_key": "dbt_env",
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
       "task_key": "dbt_run_gold",
       "description": "dbt run — build gold marts",
       "depends_on": [
-        { "task_key": "dbt_test_silver" }
+        { "task_key": "dbt_test_silver" },
+        { "task_key": "dbt_test_scd2_merge" }
       ],
       "dbt_task": {
         "project_directory": "dbt",
