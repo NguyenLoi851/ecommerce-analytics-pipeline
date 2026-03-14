@@ -18,42 +18,44 @@ Step-by-step instructions to set up and run the ecommerce analytics pipeline fro
 
 ### 1a. Configure AWS IAM user and local CLI profile
 
-Before running Terraform, create an AWS user/profile that has the permissions needed to create and manage the project infrastructure.
+Before running Terraform, create a dedicated IAM user and configure a local AWS CLI profile. Full step-by-step instructions, including SSO setup and common troubleshooting, are in [terraform/README.md](../terraform/README.md).
 
-1. In AWS Console, go to **IAM → Users**.
-2. Create a new user for this project, for example `ecommerce-pipeline-terraform`.
-3. Grant the user programmatic access by creating an access key.
-4. Attach permissions that allow Terraform to manage the required resources. For a quick start, assign broad access that includes S3 and IAM management for this project.
-   - Minimum practical access for this project should include S3 and IAM permissions.
-   - If you are working in a sandbox account, you can temporarily attach broader admin-style access and tighten it later.
-5. Save the **Access key ID** and **Secret access key**.
+Summary:
 
-Set up the AWS CLI locally:
-
-```bash
-aws configure --profile <your-project-profile>
-```
-
-Provide these values when prompted:
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region name, for example `us-east-1`
-- Default output format, for example `json`
-
-Validate the profile before running Terraform:
-
-```bash
-aws sts get-caller-identity --profile <your-project-profile>
-```
-
-Use this profile for subsequent AWS and Terraform commands in this runbook.
+1. In AWS Console, go to **IAM → Users → Create user** (e.g. `ecommerce-pipeline-terraform`).
+2. Attach `AmazonS3FullAccess` and `IAMFullAccess`.
+3. Under **Security credentials**, create an access key (select *CLI* use case) and save the key ID and secret.
+4. Configure a local profile:
+   ```bash
+   aws configure --profile ecommerce-dev
+   ```
+5. Verify it points to the correct account:
+   ```bash
+   aws sts get-caller-identity --profile ecommerce-dev
+   ```
 
 ### 1b. Create S3 bucket (Terraform)
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: aws_region, raw_bucket_name
+```
+
+Edit `terraform.tfvars` and fill in your values:
+
+```hcl
+aws_region      = "us-east-1"
+aws_profile     = "ecommerce-dev"
+environment     = "dev"
+
+raw_bucket_name = "your-olist-raw-bucket"
+
+force_destroy   = false
+```
+
+Then apply:
+
+```bash
 terraform init
 terraform plan
 terraform apply

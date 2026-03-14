@@ -59,6 +59,11 @@ aws sts get-caller-identity --profile ecommerce-dev
 
 4) Set Terraform to use this profile in `terraform.tfvars`:
 
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
 ```hcl
 aws_region          = "us-east-1"
 aws_profile         = "ecommerce-dev"
@@ -72,8 +77,6 @@ force_destroy       = false
 5) Run Terraform from this folder:
 
 ```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
 # update aws_region, aws_profile and raw_bucket_name in terraform.tfvars
 terraform init
 terraform plan
