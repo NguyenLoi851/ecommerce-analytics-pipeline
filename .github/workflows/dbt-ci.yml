@@ -110,17 +110,17 @@ jobs:
         working-directory: dbt
         run: dbt debug --profiles-dir . --target dev
 
-      - name: dbt test — staging
+      - name: dbt snapshot — SCD2 history tables
         working-directory: dbt
-        run: dbt test --profiles-dir . --target dev --select staging
+        run: dbt snapshot --profiles-dir . --target dev --select snap_dim_customers_scd2 snap_dim_products_scd2
 
-      - name: dbt test — silver
+      - name: dbt run — build staging/silver/gold
         working-directory: dbt
-        run: dbt test --profiles-dir . --target dev --select silver
+        run: dbt run --profiles-dir . --target dev --select staging silver gold
 
-      - name: dbt test — gold
+      - name: dbt test — full suite (staging/silver/gold)
         working-directory: dbt
-        run: dbt test --profiles-dir . --target dev --select gold
+        run: dbt test --profiles-dir . --target dev --select staging silver gold
 
       - name: Upload dbt artifacts
         if: always()
@@ -175,6 +175,10 @@ jobs:
       - name: dbt deps
         working-directory: dbt
         run: dbt deps --profiles-dir .
+
+      - name: dbt snapshot — SCD2 history tables
+        working-directory: dbt
+        run: dbt snapshot --profiles-dir . --target prod --select snap_dim_customers_scd2 snap_dim_products_scd2
 
       - name: dbt run — full prod build
         working-directory: dbt
