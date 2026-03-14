@@ -20,8 +20,7 @@ USING (
         customer_unique_id,
         customer_zip_code_prefix,
         customer_city,
-        customer_state,
-        _ingest_ts as valid_from
+        customer_state
     from latest_source
     where _rn = 1
 ) AS src
@@ -35,7 +34,7 @@ AND (
     OR coalesce(tgt.customer_state, '') <> coalesce(src.customer_state, '')
 )
 THEN UPDATE SET
-    valid_to = src.valid_from,
+    valid_to = current_timestamp(),
     is_current = false
     {% else %}
 SELECT 1
@@ -86,8 +85,7 @@ USING (
         product_weight_g,
         product_length_cm,
         product_height_cm,
-        product_width_cm,
-        _ingest_ts as valid_from
+        product_width_cm
     from latest_source
     where _rn = 1
 ) AS src
@@ -106,7 +104,7 @@ AND (
     OR coalesce(tgt.product_width_cm, -1.0) <> coalesce(src.product_width_cm, -1.0)
 )
 THEN UPDATE SET
-    valid_to = src.valid_from,
+    valid_to = current_timestamp(),
     is_current = false
     {% else %}
 SELECT 1
