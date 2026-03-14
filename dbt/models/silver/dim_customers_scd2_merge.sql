@@ -4,7 +4,7 @@
         incremental_strategy='merge',
         unique_key='scd_id',
         on_schema_change='sync_all_columns',
-        post_hook=scd2_close_current_customers_merge(this)
+        post_hook="{{ scd2_close_current_customers_merge(this) }}"
     )
 }}
 
