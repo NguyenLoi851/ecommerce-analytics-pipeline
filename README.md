@@ -129,10 +129,14 @@ Build a production-style analytics pipeline that:
 	- subsequent runs skip already-loaded tables; failed loads are automatically retried,
 	- `geolocation` and `product_category_name_translation` always perform a full overwrite,
 	- `FORCE_RELOAD=true` widget bypasses the registry for all tables in a single run.
-- Research and prototype SCD Type 2 in Silver dimensions:
-	- evaluate candidates (`dim_customers`, `dim_products`),
-	- define `valid_from`, `valid_to`, `is_current` columns,
-	- compare snapshot vs custom `MERGE` implementation.
+- ✅ Prototype SCD Type 2 in Silver dimensions using dbt snapshots:
+	- added snapshot-backed models `dim_customers_scd2` and `dim_products_scd2`,
+	- exposes `valid_from`, `valid_to`, `is_current` columns,
+	- keeps existing `dim_customers` and `dim_products` unchanged for downstream compatibility.
+- ✅ Add Databricks `MERGE`-based SCD Type 2 option (in parallel with snapshot approach):
+	- added incremental MERGE models `dim_customers_scd2_merge` and `dim_products_scd2_merge`,
+	- uses Databricks MERGE hooks to close old versions and insert new current versions,
+	- keeps snapshot-based SCD2 models intact for side-by-side comparison.
 - Delta optimizations (`OPTIMIZE`, partition strategy, maintenance tasks).
 - ✅ Add full reset tooling to rerun pipeline from scratch:
 	- delete raw landing data only (`raw/olist`),
@@ -687,3 +691,127 @@ This script will:
 3. Re-upload raw files if raw data was deleted (`scripts/upload_to_s3.py`).
 4. Run Bronze ingestion notebook/workflow.
 5. Run quality checks + dbt Silver/Gold.
+
+## 15) Phase 5: Run SCD Type 2 Prototype
+
+This project now includes a dbt snapshot-based SCD Type 2 prototype for:
+
+- `dim_customers_scd2`
+- `dim_products_scd2`
+
+The implementation keeps the existing Silver dimensions unchanged and adds new
+snapshot-backed models for historical tracking.
+
+### A) Files added for this feature
+
+- `dbt/snapshots/snap_dim_customers_scd2.sql`
+- `dbt/snapshots/snap_dim_products_scd2.sql`
+- `dbt/models/silver/dim_customers_scd2.sql`
+- `dbt/models/silver/dim_products_scd2.sql`
+- `dbt/models/silver/dim_scd2.yml`
+
+Databricks MERGE version (additional):
+
+- `dbt/macros/scd2_merge_hooks.sql`
+- `dbt/models/silver/dim_customers_scd2_merge.sql`
+- `dbt/models/silver/dim_products_scd2_merge.sql`
+
+### B) How to run it
+
+From the `dbt/` directory:
+
+1. Validate connection:
+
+```bash
+dbt debug --profiles-dir .
+```
+
+2. Run the snapshots:
+
+```bash
+dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --profiles-dir .
+```
+
+3. Build the Silver SCD2 models:
+
+```bash
+dbt run --select dim_customers_scd2 dim_products_scd2 --profiles-dir .
+```
+
+4. Run tests for the new models:
+
+```bash
+dbt test --select dim_customers_scd2 dim_products_scd2 --profiles-dir .
+```
+
+For production, add `--target prod` to the same commands.
+
+### C) How to validate the history behavior
+
+1. Run Bronze ingestion so the source Bronze tables exist.
+2. Run the SCD2 snapshot commands once.
+3. Change one or more customer/product attributes upstream in Bronze.
+4. Run the same snapshot command again.
+5. Re-run the SCD2 models.
+
+Expected result:
+
+- old version gets a populated `valid_to`,
+- new version gets a new `valid_from`,
+- only one row per business key has `is_current = true`.
+
+### D) Example validation queries
+
+```sql
+-- Current customer versions
+select *
+from <target_catalog>.silver.dim_customers_scd2
+where is_current = true
+limit 20;
+
+-- Full history for a customer
+select *
+from <target_catalog>.silver.dim_customers_scd2
+where customer_id = '<customer_id>'
+order by valid_from;
+
+-- Full history for a product
+select *
+from <target_catalog>.silver.dim_products_scd2
+where product_id = '<product_id>'
+order by valid_from;
+```
+
+### E) Design choice
+
+This implementation uses **dbt snapshots** instead of a custom `MERGE` because:
+
+- dbt snapshots are simpler to operate,
+- history tracking is built in,
+- it avoids breaking existing downstream models,
+- it is a good prototype path before deciding whether a custom incremental `MERGE`
+	design is needed later.
+
+### F) Databricks MERGE version (optional)
+
+The snapshot-based SCD2 path above remains unchanged.
+
+If you want the Databricks `MERGE` implementation instead, run:
+
+```bash
+dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
+dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
+```
+
+For production:
+
+```bash
+dbt run --target prod --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
+dbt test --target prod --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
+```
+
+Behavior summary:
+
+- If business attributes changed, old row is closed (`valid_to` set, `is_current=false`).
+- New version row is inserted with `is_current=true`.
+- If no attributes changed, no new row is inserted.
