@@ -69,12 +69,12 @@ records_to_insert as (
         s.customer_zip_code_prefix,
         s.customer_city,
         s.customer_state,
-        s._ingest_ts as valid_from,
+        current_timestamp() as valid_from,
         cast(null as timestamp) as valid_to,
         true as is_current,
         s._ingest_ts,
         s._batch_id,
-        sha2(concat_ws('||', s.customer_id, cast(s._ingest_ts as string), s._batch_id), 256) as scd_id
+        sha2(concat_ws('||', s.customer_id, cast(current_timestamp() as string)), 256) as scd_id
     from source_current as s
     left join target_current as t
         on s.customer_id = t.customer_id
