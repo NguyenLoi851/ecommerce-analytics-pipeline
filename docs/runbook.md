@@ -16,7 +16,39 @@ Step-by-step instructions to set up and run the ecommerce analytics pipeline fro
 
 ## 1. Infrastructure Setup
 
-### 1a. Create S3 bucket (Terraform)
+### 1a. Configure AWS IAM user and local CLI profile
+
+Before running Terraform, create an AWS user/profile that has the permissions needed to create and manage the project infrastructure.
+
+1. In AWS Console, go to **IAM → Users**.
+2. Create a new user for this project, for example `ecommerce-pipeline-terraform`.
+3. Grant the user programmatic access by creating an access key.
+4. Attach permissions that allow Terraform to manage the required resources. For a quick start, assign broad access that includes S3 and IAM management for this project.
+   - Minimum practical access for this project should include S3 and IAM permissions.
+   - If you are working in a sandbox account, you can temporarily attach broader admin-style access and tighten it later.
+5. Save the **Access key ID** and **Secret access key**.
+
+Set up the AWS CLI locally:
+
+```bash
+aws configure --profile <your-project-profile>
+```
+
+Provide these values when prompted:
+- AWS Access Key ID
+- AWS Secret Access Key
+- Default region name, for example `us-east-1`
+- Default output format, for example `json`
+
+Validate the profile before running Terraform:
+
+```bash
+aws sts get-caller-identity --profile <your-project-profile>
+```
+
+Use this profile for subsequent AWS and Terraform commands in this runbook.
+
+### 1b. Create S3 bucket (Terraform)
 
 ```bash
 cd terraform
@@ -27,12 +59,12 @@ terraform plan
 terraform apply
 ```
 
-### 1b. Set up Unity Catalog and schemas
+### 1c. Set up Unity Catalog and schemas
 
 Run in Databricks SQL Editor:
 1. `databricks/sql/00_unity_catalog_setup.sql` — creates `dev` and `prod` catalogs with `bronze`, `silver`, `gold` schemas.
 
-### 1c. Configure S3 access from Databricks
+### 1d. Configure S3 access from Databricks
 
 1. In Databricks Account Console → **Data → Credentials**, start creating an AWS IAM role-based storage credential.
 2. Copy the trust policy values Databricks shows you.
@@ -40,12 +72,12 @@ Run in Databricks SQL Editor:
 4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<databricks-s3-access-role-arn>` and `<your-raw-bucket>`.
 5. Run the SQL file in Databricks SQL Editor.
 
-### 1d. Connect Databricks Repos to GitHub
+### 1e. Connect Databricks Repos to GitHub
 
 In Databricks UI: **User Settings → Linked accounts → GitHub** → connect via PAT or GitHub App.
 Then: **Repos → Add Repo** → paste this repository URL.
 
-### 1e. Validate infrastructure
+### 1f. Validate infrastructure
 
 Run `databricks/notebooks/00_phase0_smoke_test.py` in Databricks. Expected result: table `dev.bronze.phase0_smoke_test` created successfully.
 
