@@ -16,12 +16,12 @@ Step-by-step instructions to set up and run the ecommerce analytics pipeline fro
 
 ## 1. Infrastructure Setup
 
-### 1a. Create S3 buckets (Terraform)
+### 1a. Create S3 bucket (Terraform)
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: aws_region, raw_bucket_name, curated_bucket_name, logs_bucket_name
+# edit terraform.tfvars: aws_region, raw_bucket_name
 terraform init
 terraform plan
 terraform apply
@@ -37,7 +37,7 @@ Run in Databricks SQL Editor:
 1. In Databricks Account Console → **Data → Credentials**, start creating an AWS IAM role-based storage credential.
 2. Copy the trust policy values Databricks shows you.
 3. In AWS IAM, create a role and attach the trust policy + an S3 access policy (see [architecture.md](architecture.md) for the policy template).
-4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<databricks-s3-access-role-arn>`, `<your-raw-bucket>`, `<your-curated-bucket>`.
+4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<databricks-s3-access-role-arn>` and `<your-raw-bucket>`.
 5. Run the SQL file in Databricks SQL Editor.
 
 ### 1d. Connect Databricks Repos to GitHub

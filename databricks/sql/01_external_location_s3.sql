@@ -26,12 +26,6 @@ URL 's3://<your-raw-bucket>/state/autoloader/olist'
 WITH (STORAGE CREDENTIAL olist_s3_credential)
 COMMENT 'Auto Loader schema and checkpoint state for Olist ingestion';
 
-CREATE EXTERNAL LOCATION IF NOT EXISTS olist_curated_ext_loc
-URL 's3://<your-curated-bucket>/curated/olist'
-WITH (STORAGE CREDENTIAL olist_s3_credential)
-COMMENT 'Olist curated zone in S3';
-
 -- 3) Permissions (adjust principals)
 GRANT READ FILES ON EXTERNAL LOCATION olist_raw_ext_loc TO `account users`;
 GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION olist_autoloader_state_ext_loc TO `account users`;
-GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION olist_curated_ext_loc TO `account users`;

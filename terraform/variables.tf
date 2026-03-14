@@ -21,16 +21,6 @@ variable "raw_bucket_name" {
   type        = string
 }
 
-variable "curated_bucket_name" {
-  description = "S3 bucket name for curated data"
-  type        = string
-}
-
-variable "logs_bucket_name" {
-  description = "S3 bucket name for logs"
-  type        = string
-}
-
 variable "force_destroy" {
   description = "Whether to allow destroying non-empty buckets"
   type        = bool

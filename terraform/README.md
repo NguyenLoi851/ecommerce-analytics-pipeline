@@ -1,9 +1,7 @@
-# Terraform: AWS S3 Buckets
+# Terraform: AWS S3 Bucket
 
-This folder provisions S3 buckets for the data pipeline:
+This folder provisions the S3 bucket used by the data pipeline:
 - raw bucket
-- curated bucket
-- logs bucket
 
 ## Prerequisites
 
@@ -67,8 +65,6 @@ aws_profile         = "ecommerce-dev"
 environment         = "dev"
 
 raw_bucket_name     = "your-olist-raw-bucket"
-curated_bucket_name = "your-olist-curated-bucket"
-logs_bucket_name    = "your-olist-logs-bucket"
 
 force_destroy       = false
 ```
@@ -78,7 +74,7 @@ force_destroy       = false
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# update aws_region, aws_profile and bucket names in terraform.tfvars
+# update aws_region, aws_profile and raw_bucket_name in terraform.tfvars
 terraform init
 terraform plan
 terraform apply
@@ -99,4 +95,4 @@ terraform apply
 
 - Bucket names must be globally unique in AWS.
 - Keep `force_destroy = false` for safety in non-ephemeral environments.
-- After apply, use output bucket URLs in Databricks external location SQL setup.
+- After apply, use the raw bucket URL in Databricks external location SQL setup.
