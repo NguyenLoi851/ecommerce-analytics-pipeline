@@ -120,7 +120,13 @@ def write_bronze(df: DataFrame, table: str) -> None:
     print(f"  Done: {full_name}")
 
 
-def ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> None:
+def ingest(
+    source_file: str,
+    table: str,
+    cast_exprs: dict,
+    rename_columns=None,
+    **csv_options,
+) -> None:
     """
     End-to-end ingest: read CSV -> cast -> add metadata -> write Delta.
 
@@ -145,10 +151,16 @@ def ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> Non
         print(f"\n[{table}] First load — reading {source_file} ...")
 
     path = f"{S3_BASE_PATH}/{source_file}"
-    raw  = read_csv(path, **csv_options)
+    raw = read_csv(path, **csv_options)
+
+    normalized = raw
+    if rename_columns:
+        for source_col, target_col in rename_columns.items():
+            if source_col in normalized.columns and source_col != target_col:
+                normalized = normalized.withColumnRenamed(source_col, target_col)
 
     # Apply explicit casts; keep all other columns as StringType.
-    casted = raw
+    casted = normalized
     for col_name, col_expr in cast_exprs.items():
         casted = casted.withColumn(col_name, col_expr)
 
@@ -346,9 +358,13 @@ ingest(
 ingest(
     source_file="olist_products_dataset.csv",
     table="products",
+    rename_columns={
+        "product_name_lenght": "product_name_length",
+        "product_description_lenght": "product_description_length",
+    },
     cast_exprs={
-        "product_name_lenght":           F.col("product_name_lenght").cast(IntegerType()),
-        "product_description_lenght":    F.col("product_description_lenght").cast(IntegerType()),
+        "product_name_length":           F.col("product_name_length").cast(IntegerType()),
+        "product_description_length":    F.col("product_description_length").cast(IntegerType()),
         "product_photos_qty":            F.col("product_photos_qty").cast(IntegerType()),
         "product_weight_g":              F.col("product_weight_g").cast(IntegerType()),
         "product_length_cm":             F.col("product_length_cm").cast(IntegerType()),

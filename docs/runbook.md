@@ -70,8 +70,8 @@ Run in Databricks SQL Editor:
 
 1. In Databricks Account Console → **Data → Credentials**, start creating an AWS IAM role-based storage credential.
 2. Copy the trust policy values Databricks shows you.
-3. In AWS IAM, create a role and attach the trust policy + an S3 access policy (see [architecture.md](architecture.md) for the policy template).
-4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<databricks-s3-access-role-arn>` and `<your-raw-bucket>`.
+3. In AWS IAM, create a role and attach the trust policy + an S3 access policy.
+4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<your-raw-bucket>`.
 5. Run the SQL file in Databricks SQL Editor.
 
 ### 1e. Connect Databricks Repos to GitHub

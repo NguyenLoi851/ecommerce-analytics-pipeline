@@ -103,6 +103,15 @@ def apply_casts(df: DataFrame, cast_exprs: dict) -> DataFrame:
     return out
 
 
+def rename_input_columns(df: DataFrame, rename_columns=None) -> DataFrame:
+    out = df
+    if rename_columns:
+        for source_col, target_col in rename_columns.items():
+            if source_col in out.columns and source_col != target_col:
+                out = out.withColumnRenamed(source_col, target_col)
+    return out
+
+
 def add_metadata_batch(df: DataFrame, source_file: str) -> DataFrame:
     return (
         df.withColumn("_ingest_ts", F.lit(INGEST_TS).cast(TimestampType()))
@@ -144,12 +153,19 @@ def drop_target_table_if_exists(table: str) -> None:
     spark.sql(f"DROP TABLE IF EXISTS {full_name(table)}")
 
 
-def full_load_ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> None:
+def full_load_ingest(
+    source_file: str,
+    table: str,
+    cast_exprs: dict,
+    rename_columns=None,
+    **csv_options,
+) -> None:
     """Always-full-load mode (overwrite) for small reference tables."""
     path = f"{S3_BASE_PATH}/{source_file}"
     print(f"\n[{table}] FULL LOAD (overwrite) from {path}")
 
     df = read_csv_batch(path, **csv_options)
+    df = rename_input_columns(df, rename_columns)
     df = apply_casts(df, cast_exprs)
     df = add_metadata_batch(df, source_file)
 
@@ -164,7 +180,13 @@ def full_load_ingest(source_file: str, table: str, cast_exprs: dict, **csv_optio
     print(f"  Wrote {row_count:,} rows -> {full_name(table)}")
 
 
-def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict, **csv_options) -> None:
+def incremental_autoloader_ingest(
+    source_file: str,
+    table: str,
+    cast_exprs: dict,
+    rename_columns=None,
+    **csv_options,
+) -> None:
     """
     Incremental ingestion via Auto Loader.
 
@@ -200,6 +222,7 @@ def incremental_autoloader_ingest(source_file: str, table: str, cast_exprs: dict
         .load(source_path)
     )
 
+    stream_df = rename_input_columns(stream_df, rename_columns)
     stream_df = apply_casts(stream_df, cast_exprs)
     stream_df = add_metadata_stream(stream_df)
 
@@ -324,9 +347,13 @@ incremental_autoloader_ingest(
 incremental_autoloader_ingest(
     source_file="olist_products_dataset.csv",
     table="products",
+    rename_columns={
+        "product_name_lenght": "product_name_length",
+        "product_description_lenght": "product_description_length",
+    },
     cast_exprs={
-        "product_name_lenght": F.col("product_name_lenght").cast(IntegerType()),
-        "product_description_lenght": F.col("product_description_lenght").cast(IntegerType()),
+        "product_name_length": F.col("product_name_length").cast(IntegerType()),
+        "product_description_length": F.col("product_description_length").cast(IntegerType()),
         "product_photos_qty": F.col("product_photos_qty").cast(IntegerType()),
         "product_weight_g": F.col("product_weight_g").cast(IntegerType()),
         "product_length_cm": F.col("product_length_cm").cast(IntegerType()),
