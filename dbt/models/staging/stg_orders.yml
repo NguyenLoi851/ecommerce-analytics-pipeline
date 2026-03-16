@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_orders
-    description: "Staging view over dev.bronze.orders. Minimal transformations — rename only."
+    description: "Staging view over dev.bronze.orders. Minimal transformations — column projection only."
     columns:
       - name: order_id
         description: "Unique order identifier."

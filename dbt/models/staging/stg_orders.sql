@@ -1,5 +1,5 @@
 -- Staging model: stg_orders
--- Reads from Bronze, casts types, renames columns to snake_case standard.
+-- Reads from Bronze and projects core order + metadata columns.
 -- Materialized as a view over dev.bronze.orders.
 
 with source as (
