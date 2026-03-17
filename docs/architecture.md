@@ -39,6 +39,8 @@ Gold    dev.gold.* / prod.gold.*       (KPI marts)
 Databricks SQL Warehouse → BI dashboards
 ```
 
+For Tableau-specific dashboard design and model-to-chart mapping, see [tableau_dashboard_instructions.md](tableau_dashboard_instructions.md).
+
 ---
 
 ## Data Layers
