@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: mart_tableau_ops
+    description: >
+      Wide, pre-joined mart for the Tableau Operations & Customer Experience Dashboard.
+      Grain: one row per order. Includes all fields needed for KPIs and Charts 1–5
+      without requiring any joins in Tableau.
+    columns:
+      - name: order_id
+        description: "Order identifier."
+        tests: [not_null, unique]
+      - name: customer_id
+        description: "Customer identifier."
+      - name: order_date
+        description: "Order purchase date (day level)."
+        tests: [not_null]
+      - name: order_year
+        description: "Year of the order purchase date. Used for yearly trend charts."
+        tests: [not_null]
+      - name: order_status
+        description: "Order status (e.g. delivered, canceled, shipped)."
+      - name: customer_state
+        description: "Brazilian state abbreviation of the customer."
+      - name: customer_city
+        description: "City of the customer."
+      - name: is_delivered
+        description: "True if the order was successfully delivered."
+      - name: actual_delivery_days
+        description: "Actual number of days from purchase to delivery."
+      - name: estimated_delivery_days
+        description: "Estimated number of days from purchase to delivery."
+      - name: delivery_delay_days
+        description: "Positive = late delivery; negative = early delivery."
+      - name: is_late_delivery
+        description: "True if delivery_delay_days > 0 (delivered after estimated date)."
+      - name: review_id
+        description: "Review identifier (null if no review was left for the order)."
+      - name: review_score
+        description: "Review score 1–5 (null if no review). From fct_reviews."
+      - name: review_creation_date
+        description: "Date the review was created."
