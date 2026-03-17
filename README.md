@@ -21,6 +21,7 @@ Use [docs/runbook.md](docs/runbook.md) as the single source of truth for setup a
 | [docs/architecture.md](docs/architecture.md) | Stack, data flow, layer model definitions |
 | [docs/deployment-strategy.md](docs/deployment-strategy.md) | Branch strategy, CI gates, prod promotion |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common failures and fixes |
+| [docs/tableau_dashboard_instructions.md](docs/tableau_dashboard_instructions.md) | Tableau dashboard setup, chart mapping, and interaction design |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/development-history.md](docs/development-history.md) | Phase-by-phase development archive |
 | [docs/archive/](docs/archive/) | Legacy per-phase runbooks |
@@ -47,6 +48,7 @@ ecommerce-analytics-pipeline/
 │   ├── runbook.md
 │   ├── deployment-strategy.md
 │   ├── troubleshooting.md
+│   ├── tableau_dashboard_instructions.md
 │   ├── adr/                ← Architecture Decision Records
 │   ├── archive/            ← Legacy phase runbooks
 │   └── development-history.md

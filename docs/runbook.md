@@ -180,6 +180,8 @@ Expected Bronze tables: `dev.bronze.orders`, `order_items`, `order_payments`, `o
 
 Build and test the Silver and Gold layers:
 
+For Tableau consumption after Gold build, follow [tableau_dashboard_instructions.md](tableau_dashboard_instructions.md) for data source setup and chart field mapping.
+
 ```bash
 cd dbt
 
