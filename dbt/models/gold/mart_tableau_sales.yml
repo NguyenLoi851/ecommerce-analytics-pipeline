@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: mart_tableau_sales
+    description: >
+      Wide, pre-joined mart for the Tableau Sales Dashboard.
+      Grain: one row per order item. Includes all fields needed for KPIs
+      and Charts 1–5 without requiring any joins in Tableau.
+    columns:
+      - name: order_id
+        description: "Order identifier."
+        tests: [not_null]
+      - name: order_item_id
+        description: "Item sequence number within the order."
+        tests: [not_null]
+      - name: product_id
+        description: "Product identifier."
+      - name: seller_id
+        description: "Seller identifier."
+      - name: customer_id
+        description: "Customer identifier (order-level key from fct_orders)."
+      - name: order_date
+        description: "Order purchase date (day level)."
+        tests: [not_null]
+      - name: order_month
+        description: "Order purchase month in YYYY-MM format, for monthly trend charts."
+      - name: order_day_of_week
+        description: "Full weekday name (Monday–Sunday) of the order purchase date."
+      - name: day_of_week_sort
+        description: "Numeric sort key for order_day_of_week (1=Monday … 7=Sunday)."
+      - name: order_status
+        description: "Order status (e.g. delivered, canceled)."
+      - name: customer_state
+        description: "Brazilian state abbreviation of the customer (from dim_customers)."
+      - name: customer_city
+        description: "City of the customer (from dim_customers)."
+      - name: product_category_name_english
+        description: "English product category name (from dim_products)."
+      - name: total_item_value
+        description: "Item revenue: price + freight_value (from fct_order_items)."
+      - name: primary_payment_type
+        description: >
+          Payment type of the highest-value payment for the order
+          (from fct_payments). Used for the payment distribution pie chart.
+      - name: primary_payment_value
+        description: "Payment value of the primary payment row."
