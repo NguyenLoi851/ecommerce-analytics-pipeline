@@ -13,6 +13,18 @@ Use [docs/runbook.md](docs/runbook.md) as the single source of truth for setup a
 
 ---
 
+## Tableau Dashboard Preview
+
+### Sales Overview
+
+![Sales Overview Dashboard](docs/assets/tableau/sales-overview.png)
+
+### Operations & Customer Experience
+
+![Operations and Customer Experience Dashboard](docs/assets/tableau/operations-customer-experience.png)
+
+---
+
 ## Documentation
 
 | Document | Purpose |
@@ -21,6 +33,7 @@ Use [docs/runbook.md](docs/runbook.md) as the single source of truth for setup a
 | [docs/architecture.md](docs/architecture.md) | Stack, data flow, layer model definitions |
 | [docs/deployment-strategy.md](docs/deployment-strategy.md) | Branch strategy, CI gates, prod promotion |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common failures and fixes |
+| [docs/assets/tableau/](docs/assets/tableau/) | Tableau dashboard preview images |
 | [docs/tableau_dashboard_instructions.md](docs/tableau_dashboard_instructions.md) | Tableau dashboard setup, chart mapping, and interaction design |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/development-history.md](docs/development-history.md) | Phase-by-phase development archive |
@@ -49,6 +62,8 @@ ecommerce-analytics-pipeline/
 │   ├── deployment-strategy.md
 │   ├── troubleshooting.md
 │   ├── tableau_dashboard_instructions.md
+│   ├── assets/
+│   │   └── tableau/       ← Tableau dashboard preview images
 │   ├── adr/                ← Architecture Decision Records
 │   ├── archive/            ← Legacy phase runbooks
 │   └── development-history.md
