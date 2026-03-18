@@ -2,6 +2,16 @@
 
 This document provides step-by-step guidance for building Tableau dashboards using the two dedicated gold mart models created for this purpose. No joins are needed in Tableau — all required fields are pre-joined in the models.
 
+## Dashboard Preview
+
+### Sales Overview
+
+![Sales Overview Dashboard](assets/tableau/sales-overview.png)
+
+### Operations & Customer Experience
+
+![Operations and Customer Experience Dashboard](assets/tableau/operations-customer-experience.png)
+
 ## 1. Data Preparation
 
 ### Two Mart Tables to Connect in Tableau
