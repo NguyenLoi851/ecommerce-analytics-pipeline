@@ -193,13 +193,16 @@ cd dbt
 # Install dbt packages
 dbt deps --profiles-dir .
 
-# Build Silver (dimensions and facts)
-dbt run --select silver --profiles-dir .
-dbt test --select silver --profiles-dir .
+# Build Silver (scd, dimensions and facts)
+dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --vars '{"catalog": "dev", "schema": "silver"}'
+dbt run --select staging silver --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
+dbt test --select staging silver --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
+dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
+dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
 
 # Build Gold (analytics marts)
-dbt run --select gold --profiles-dir .
-dbt test --select gold --profiles-dir .
+dbt run --select gold --vars '{\"catalog\": \"dev\", \"schema\": \"gold\"}'
+dbt test --select gold --vars '{\"catalog\": \"dev\", \"schema\": \"gold\"}'
 
 # Or build everything at once
 dbt run --select staging silver gold --profiles-dir .
