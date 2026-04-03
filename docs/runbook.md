@@ -193,20 +193,26 @@ cd dbt
 # Install dbt packages
 dbt deps --profiles-dir .
 
+# Dev target (recommended for local iteration)
 # Build Silver (scd, dimensions and facts)
-dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --vars '{"catalog": "dev", "schema": "silver"}'
-dbt run --select staging silver --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
-dbt test --select staging silver --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
-dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
-dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"dev\", \"schema\": \"silver\"}'
+dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --profiles-dir . --target dev
+dbt run --select staging silver --profiles-dir . --target dev
+dbt test --select staging silver --profiles-dir . --target dev
+dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir . --target dev
+dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir . --target dev
 
 # Build Gold (analytics marts)
-dbt run --select gold --vars '{\"catalog\": \"dev\", \"schema\": \"gold\"}'
-dbt test --select gold --vars '{\"catalog\": \"dev\", \"schema\": \"gold\"}'
+dbt run --select gold --profiles-dir . --target dev
+dbt test --select gold --profiles-dir . --target dev
 
-# Or build everything at once
-dbt run --select staging silver gold --profiles-dir .
-dbt test --select staging silver gold --profiles-dir .
+# Or build everything at once (dev)
+dbt run --select staging silver gold --profiles-dir . --target dev
+dbt test --select staging silver gold --profiles-dir . --target dev
+
+# Production runs: same commands, switch target
+# Example:
+dbt run --select staging silver gold --profiles-dir . --target prod
+dbt test --select staging silver gold --profiles-dir . --target prod
 ```
 
 ### Verify in Databricks SQL
@@ -367,7 +373,7 @@ Run `databricks/sql/02_reset_layers.sql` in Databricks SQL Editor (set `target_c
 3. Re-upload raw files if raw data was deleted.
 4. Run Bronze ingestion notebook.
 5. Run quality checks.
-6. Run `dbt run` and `dbt test` for Silver + Gold.
+6. Run `dbt run` and `dbt test` for Silver + Gold with an explicit target (`--target dev` or `--target prod`).
 
 ---
 
@@ -379,19 +385,19 @@ Snapshot-backed SCD2 models are available for `dim_customers` and `dim_products`
 cd dbt
 
 # Run snapshots
-dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --profiles-dir .
+dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --profiles-dir . --target dev
 
 # Build SCD2 Silver models
-dbt run --select dim_customers_scd2 dim_products_scd2 --profiles-dir .
+dbt run --select dim_customers_scd2 dim_products_scd2 --profiles-dir . --target dev
 
 # Test
-dbt test --select dim_customers_scd2 dim_products_scd2 --profiles-dir .
+dbt test --select dim_customers_scd2 dim_products_scd2 --profiles-dir . --target dev
 ```
 
 For the Databricks MERGE variant:
 ```bash
-dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
-dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir .
+dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir . --target dev
+dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --profiles-dir . --target dev
 ```
 
 See [adr/003-scd2-snapshot-vs-merge.md](adr/003-scd2-snapshot-vs-merge.md) for why the snapshot approach was chosen.
