@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver fact: fct_reviews
 -- Source: dev.bronze.order_reviews
 -- One row per review_id. Deduplicates on review_id (keep the latest entry)

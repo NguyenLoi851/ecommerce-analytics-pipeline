@@ -53,6 +53,7 @@
           "RAW_BUCKET": "<your-raw-bucket>",
           "TARGET_CATALOG": "{{job.parameters.env}}",
           "TARGET_SCHEMA": "bronze",
+          "DELTA_BASE_PATH": "s3://<your-raw-bucket>/delta/olist",
           "FORCE_RELOAD": "false",
           "AUTOLOADER_STATE_BASE": "s3://<your-raw-bucket>/state/autoloader/olist"
         },

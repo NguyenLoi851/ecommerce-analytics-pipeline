@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver dimension: dim_geolocation
 -- Source: dev.bronze.geolocation
 -- The raw geolocation table has many rows per ZIP prefix (multiple lat/lng points).

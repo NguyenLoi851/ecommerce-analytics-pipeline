@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver fact: fct_payments
 -- Source: dev.bronze.order_payments
 -- One row per (order_id, payment_sequential). Casts numeric columns and

@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 with delivered_orders as (
 
     select

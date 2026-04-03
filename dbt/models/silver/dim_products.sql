@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver dimension: dim_products
 -- Source: dev.bronze.products + dev.bronze.product_category_name_translation
 -- Joins in the English category name and coalesces nulls in dimension attributes.

@@ -307,6 +307,10 @@ SELECT order_date,
 FROM prod.gold.mart_sales_daily
 ORDER BY order_date DESC
 LIMIT 10;
+
+-- Verify physical storage path for Silver/Gold tables points to S3
+DESCRIBE DETAIL prod.silver.dim_customers;
+DESCRIBE DETAIL prod.gold.mart_sales_daily;
 ```
 
 ---
