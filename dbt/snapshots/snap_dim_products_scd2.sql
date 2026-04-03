@@ -17,7 +17,8 @@
             'product_width_cm'
         ],
         invalidate_hard_deletes=True,
-        external_location='olist_delta_ext_loc'
+        location_root='s3://' ~ var('raw_bucket_name') ~ '/delta/olist',
+        include_full_name_in_path=true
     )
 }}
 
