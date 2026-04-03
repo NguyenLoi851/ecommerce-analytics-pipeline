@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: bronze
     description: "Raw Bronze Delta tables ingested from the Olist dataset CSVs."
-    catalog: "{{ var('catalog') }}"
+    database: "{{ var('catalog') }}"
     schema: "{{ var('bronze_schema') }}"
     tables:
       - name: orders
