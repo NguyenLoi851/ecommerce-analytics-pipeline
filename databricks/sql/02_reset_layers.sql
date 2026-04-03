@@ -10,7 +10,7 @@
 --   Drops: dev.bronze, dev.silver, dev.gold (CASCADE)
 
 DECLARE OR REPLACE target_catalog STRING DEFAULT 'dev';
-DECLARE OR REPLACE raw_bucket_name STRING DEFAULT 'e-commercial-pipeline-olist-raw-dev';
+DECLARE OR REPLACE raw_bucket_name STRING DEFAULT '<your-raw-bucket>';
 -- Change only this line when needed:
 -- SET VAR target_catalog = 'prod';
 -- SET VAR raw_bucket_name = 'your-real-raw-bucket-name';
