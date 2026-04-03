@@ -256,7 +256,7 @@ Add these under **Settings → Secrets and variables → Actions**:
 
 3. Create the workflow from JSON and capture the `job_id`:
   ```bash
-  databricks jobs create --json @databricks/workflows/phase4_workflow.json
+  databricks jobs create --json-file databricks/workflows/phase4_workflow_autoloader.json
   ```
 
 4. Run manually first and confirm all tasks succeed:
@@ -269,7 +269,7 @@ Add these under **Settings → Secrets and variables → Actions**:
 Enable or update the schedule via CLI (daily at 03:00 UTC):
 
 ```bash
-databricks jobs reset --job-id <job-id> --json @databricks/workflows/phase4_workflow.json
+databricks jobs reset --job-id <job-id> --json-file databricks/workflows/phase4_workflow.json
 ```
 
 If needed, inspect details (including `schedule` and `pause_status`):
