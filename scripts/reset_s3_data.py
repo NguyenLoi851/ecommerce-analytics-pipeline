@@ -7,7 +7,8 @@ Delete pipeline data prefixes in S3 so the project can be re-run from scratch.
 Supports three reset scopes:
   - raw   : remove raw CSV landing data (default prefix: raw/olist)
   - state : remove Auto Loader schema/checkpoint state (default prefix: state/autoloader/olist)
-  - all   : remove both raw and state prefixes
+    - delta : remove Delta table data + _delta_log (default prefix: delta/olist)
+    - all   : remove raw, state, and delta prefixes
 
 Examples:
   # Preview only (recommended first)
@@ -30,6 +31,13 @@ Examples:
     --mode state \
     --profile <aws-profile> \
     --yes
+
+    # Delete Delta table storage only
+    python scripts/reset_s3_data.py \
+        --bucket <your-raw-bucket> \
+        --mode delta \
+        --profile <aws-profile> \
+        --yes
 """
 
 from __future__ import annotations
@@ -97,9 +105,9 @@ def main() -> None:
     parser.add_argument("--bucket", required=True, help="S3 bucket to clean.")
     parser.add_argument(
         "--mode",
-        choices=["raw", "state", "all"],
+        choices=["raw", "state", "delta", "all"],
         required=True,
-        help="Cleanup scope: raw, state, or all.",
+        help="Cleanup scope: raw, state, delta, or all.",
     )
     parser.add_argument(
         "--raw-prefix",
@@ -110,6 +118,11 @@ def main() -> None:
         "--state-prefix",
         default="state/autoloader/olist",
         help="Auto Loader state prefix (default: state/autoloader/olist).",
+    )
+    parser.add_argument(
+        "--delta-prefix",
+        default="delta/olist",
+        help="Delta storage prefix (default: delta/olist).",
     )
     parser.add_argument("--region", default="us-east-1", help="AWS region.")
     parser.add_argument("--profile", default=None, help="AWS profile (optional).")
@@ -141,12 +154,15 @@ def main() -> None:
 
     raw_prefix = normalize_prefix(args.raw_prefix)
     state_prefix = normalize_prefix(args.state_prefix)
+    delta_prefix = normalize_prefix(args.delta_prefix)
 
     prefixes: list[str] = []
     if args.mode in {"raw", "all"}:
         prefixes.append(raw_prefix)
     if args.mode in {"state", "all"}:
         prefixes.append(state_prefix)
+    if args.mode in {"delta", "all"}:
+        prefixes.append(delta_prefix)
 
     log.info("Bucket         : s3://%s", args.bucket)
     log.info("Mode           : %s", args.mode)

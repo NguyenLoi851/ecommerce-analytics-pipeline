@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver dimension: dim_customers
 -- Source: dev.bronze.customers
 -- Deduplicates on customer_id (one row per order-level customer key),

@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Gold mart: mart_tableau_ops
 -- Purpose: Wide, pre-joined table for the Tableau Operations & Customer Experience Dashboard.
 -- Grain: one row per order.

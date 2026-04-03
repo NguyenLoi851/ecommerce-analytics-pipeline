@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver dimension: dim_sellers
 -- Source: dev.bronze.sellers
 -- Standardises city/state casing and casts zip code to string.

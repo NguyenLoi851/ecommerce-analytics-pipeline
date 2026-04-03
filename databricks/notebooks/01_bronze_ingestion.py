@@ -46,6 +46,7 @@ from pyspark.sql.types import (
 dbutils.widgets.text("RAW_BUCKET",      "e-commercial-pipeline-olist-raw-dev")
 dbutils.widgets.text("TARGET_CATALOG",  "dev")
 dbutils.widgets.text("TARGET_SCHEMA",   "bronze")
+dbutils.widgets.text("DELTA_BASE_PATH", "")
 # Set to "true" to bypass the registry check and re-ingest every table from scratch.
 dbutils.widgets.text("FORCE_RELOAD",    "false")
 
@@ -53,12 +54,27 @@ RAW_BUCKET    = dbutils.widgets.get("RAW_BUCKET")
 RAW_PREFIX    = "raw/olist"
 CATALOG       = dbutils.widgets.get("TARGET_CATALOG")
 BRONZE_SCHEMA = dbutils.widgets.get("TARGET_SCHEMA")
+_delta_base_widget = dbutils.widgets.get("DELTA_BASE_PATH").strip()
+DELTA_BASE_PATH = (
+    _delta_base_widget
+    if _delta_base_widget
+    else f"s3://{RAW_BUCKET}/delta/olist"
+).rstrip("/")
 FORCE_RELOAD  = dbutils.widgets.get("FORCE_RELOAD").strip().lower() == "true"
 
 BATCH_ID = str(uuid.uuid4())
 INGEST_TS = datetime.now(timezone.utc)
 
 S3_BASE_PATH = f"s3://{RAW_BUCKET}/{RAW_PREFIX}"
+
+if not (
+    DELTA_BASE_PATH.startswith("s3://")
+    or DELTA_BASE_PATH.startswith("dbfs:/")
+):
+    raise ValueError(
+        "DELTA_BASE_PATH must start with 's3://' or 'dbfs:/'. "
+        f"Got: {DELTA_BASE_PATH}"
+    )
 
 # ---------------------------------------------------------------------------
 # Tables that always perform a full overwrite regardless of the registry.
@@ -72,6 +88,7 @@ print(f"Batch ID     : {BATCH_ID}")
 print(f"Ingest TS    : {INGEST_TS.isoformat()}")
 print(f"Target       : {CATALOG}.{BRONZE_SCHEMA}")
 print(f"Source       : {S3_BASE_PATH}")
+print(f"Delta base   : {DELTA_BASE_PATH}")
 print(f"Force reload : {FORCE_RELOAD}")
 print(f"Full-load    : {sorted(FULL_LOAD_TABLES)}")
 
@@ -106,17 +123,43 @@ def add_metadata(df: DataFrame, source_file: str) -> DataFrame:
     )
 
 
-def write_bronze(df: DataFrame, table: str) -> None:
-    """Write DataFrame to a Unity Catalog Bronze Delta table (full overwrite)."""
+def bronze_table_path(table: str) -> str:
+    """Physical Delta path for a Bronze table in object storage."""
+    return f"{DELTA_BASE_PATH}/{CATALOG}/{BRONZE_SCHEMA}/{table}"
+
+
+def ensure_table_binding(table: str, table_path: str) -> None:
+    """Ensure the Unity Catalog table points at the expected external Delta path."""
     full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
+
+    if spark.catalog.tableExists(full_name):
+        current_location = (
+            spark.sql(f"DESCRIBE DETAIL {full_name}")
+            .select("location")
+            .first()["location"]
+            .rstrip("/")
+        )
+        target_location = table_path.rstrip("/")
+        if current_location != target_location:
+            print(f"  Repointing {full_name} -> {table_path}")
+            spark.sql(f"ALTER TABLE {full_name} SET LOCATION '{table_path}'")
+    else:
+        spark.sql(f"CREATE TABLE {full_name} USING DELTA LOCATION '{table_path}'")
+
+
+def write_bronze(df: DataFrame, table: str) -> None:
+    """Write DataFrame to an external Delta path and register/update the UC table."""
+    full_name = f"{CATALOG}.{BRONZE_SCHEMA}.{table}"
+    table_path = bronze_table_path(table)
     print(f"  Writing {df.count():,} rows -> {full_name}")
     (
         df.write
         .format("delta")
         .mode("overwrite")
         .option("overwriteSchema", "true")
-        .saveAsTable(full_name)
+        .save(table_path)
     )
+    ensure_table_binding(table, table_path)
     print(f"  Done: {full_name}")
 
 
@@ -187,6 +230,7 @@ def ensure_registry_table() -> None:
     after a successful write_bronze call, so failed or interrupted loads are
     never marked as done and will be retried on the next run.
     """
+    registry_path = bronze_table_path("_ingestion_registry")
     spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {REGISTRY_TABLE} (
             source_file  STRING    NOT NULL COMMENT 'CSV filename relative to the S3 raw prefix',
@@ -196,8 +240,10 @@ def ensure_registry_table() -> None:
             row_count    LONG               COMMENT 'Number of rows written in the last load'
         )
         USING DELTA
+        LOCATION '{registry_path}'
         COMMENT 'Tracks successfully completed Bronze ingestion loads (Phase 5 incremental).'
     """)
+    ensure_table_binding("_ingestion_registry", registry_path)
 
 
 def is_already_loaded(source_file: str, table: str) -> bool:

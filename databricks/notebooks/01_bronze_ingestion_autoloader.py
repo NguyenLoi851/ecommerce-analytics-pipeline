@@ -31,6 +31,7 @@ dbutils.widgets.text("RAW_BUCKET", "e-commercial-pipeline-olist-raw-dev")
 dbutils.widgets.text("TARGET_CATALOG", "dev")
 dbutils.widgets.text("TARGET_SCHEMA", "bronze")
 dbutils.widgets.text("FORCE_RELOAD", "false")
+dbutils.widgets.text("DELTA_BASE_PATH", "")
 
 # Base path for Auto Loader metadata (schema + checkpoints).
 # Prefer S3 so state persists independently from cluster lifecycle.
@@ -42,6 +43,12 @@ RAW_PREFIX = "raw/olist"
 CATALOG = dbutils.widgets.get("TARGET_CATALOG")
 BRONZE_SCHEMA = dbutils.widgets.get("TARGET_SCHEMA")
 FORCE_RELOAD = dbutils.widgets.get("FORCE_RELOAD").strip().lower() == "true"
+_delta_base_widget = dbutils.widgets.get("DELTA_BASE_PATH").strip()
+DELTA_BASE_PATH = (
+    _delta_base_widget
+    if _delta_base_widget
+    else f"s3://{RAW_BUCKET}/delta/olist"
+).rstrip("/")
 
 _state_base_widget = dbutils.widgets.get("AUTOLOADER_STATE_BASE").strip()
 AUTOLOADER_STATE_BASE = (
@@ -59,6 +66,15 @@ if not (
         f"Got: {AUTOLOADER_STATE_BASE}"
     )
 
+if not (
+    DELTA_BASE_PATH.startswith("s3://")
+    or DELTA_BASE_PATH.startswith("dbfs:/")
+):
+    raise ValueError(
+        "DELTA_BASE_PATH must start with 's3://' or 'dbfs:/'. "
+        f"Got: {DELTA_BASE_PATH}"
+    )
+
 BATCH_ID = str(uuid.uuid4())
 INGEST_TS = datetime.now(timezone.utc)
 
@@ -73,6 +89,7 @@ print(f"Target schema  : {TARGET_PREFIX}")
 print(f"Source path    : {S3_BASE_PATH}")
 print(f"Force reload   : {FORCE_RELOAD}")
 print(f"State base     : {AUTOLOADER_STATE_BASE}")
+print(f"Delta base     : {DELTA_BASE_PATH}")
 print(f"Full-load only : {sorted(FULL_LOAD_TABLES)}")
 
 # COMMAND ----------
@@ -140,6 +157,27 @@ def full_name(table: str) -> str:
     return f"{TARGET_PREFIX}.{table}"
 
 
+def bronze_table_path(table: str) -> str:
+    return f"{DELTA_BASE_PATH}/{CATALOG}/{BRONZE_SCHEMA}/{table}"
+
+
+def ensure_table_binding(table: str, table_path: str) -> None:
+    target_name = full_name(table)
+    if spark.catalog.tableExists(target_name):
+        current_location = (
+            spark.sql(f"DESCRIBE DETAIL {target_name}")
+            .select("location")
+            .first()["location"]
+            .rstrip("/")
+        )
+        target_location = table_path.rstrip("/")
+        if current_location != target_location:
+            print(f"  Repointing {target_name} -> {table_path}")
+            spark.sql(f"ALTER TABLE {target_name} SET LOCATION '{table_path}'")
+    else:
+        spark.sql(f"CREATE TABLE {target_name} USING DELTA LOCATION '{table_path}'")
+
+
 def clear_autoloader_state(table: str) -> None:
     schema_path = autoloader_schema_path(table)
     checkpoint_path = autoloader_checkpoint_path(table)
@@ -162,7 +200,9 @@ def full_load_ingest(
 ) -> None:
     """Always-full-load mode (overwrite) for small reference tables."""
     path = f"{S3_BASE_PATH}/{source_file}"
+    target_path = bronze_table_path(table)
     print(f"\n[{table}] FULL LOAD (overwrite) from {path}")
+    print(f"  Delta path      : {target_path}")
 
     df = read_csv_batch(path, **csv_options)
     df = rename_input_columns(df, rename_columns)
@@ -174,8 +214,10 @@ def full_load_ingest(
         df.write.format("delta")
         .mode("overwrite")
         .option("overwriteSchema", "true")
-        .saveAsTable(full_name(table))
+        .save(target_path)
     )
+
+    ensure_table_binding(table, target_path)
 
     print(f"  Wrote {row_count:,} rows -> {full_name(table)}")
 
@@ -196,11 +238,13 @@ def incremental_autoloader_ingest(
     source_path = S3_BASE_PATH
     schema_path = autoloader_schema_path(table)
     checkpoint_path = autoloader_checkpoint_path(table)
+    target_path = bronze_table_path(table)
 
     print(f"\n[{table}] AUTO LOADER incremental ingest from {source_path}")
     print(f"  File filter     : {source_file}")
     print(f"  Schema path     : {schema_path}")
     print(f"  Checkpoint path : {checkpoint_path}")
+    print(f"  Delta path      : {target_path}")
 
     if FORCE_RELOAD:
         print("  FORCE_RELOAD=true: resetting Auto Loader state and target table")
@@ -231,14 +275,17 @@ def incremental_autoloader_ingest(
         .outputMode("append")
         .option("mergeSchema", "true")
         .option("checkpointLocation", checkpoint_path)
+        .option("path", target_path)
         .trigger(availableNow=True)
-        .toTable(full_name(table))
+        .start()
     )
 
     query.awaitTermination()
 
     if query.exception() is not None:
         raise query.exception()
+
+    ensure_table_binding(table, target_path)
 
     total_rows = spark.table(full_name(table)).count()
     print(f"  Current total rows in {full_name(table)}: {total_rows:,}")

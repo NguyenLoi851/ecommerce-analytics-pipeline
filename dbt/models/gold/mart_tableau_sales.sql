@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Gold mart: mart_tableau_sales
 -- Purpose: Wide, pre-joined table for the Tableau Sales Dashboard.
 -- Grain: one row per order item.

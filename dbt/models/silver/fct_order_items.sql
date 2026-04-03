@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver fact: fct_order_items
 -- Source: dev.bronze.order_items
 -- One row per (order_id, order_item_id). Casts numeric prices and adds a
