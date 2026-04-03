@@ -26,6 +26,13 @@ URL 's3://<your-raw-bucket>/state/autoloader/olist'
 WITH (STORAGE CREDENTIAL olist_s3_credential)
 COMMENT 'Auto Loader schema and checkpoint state for Olist ingestion';
 
+-- Delta table data + _delta_log files
+CREATE EXTERNAL LOCATION IF NOT EXISTS olist_delta_ext_loc
+URL 's3://<your-raw-bucket>/delta/olist'
+WITH (STORAGE CREDENTIAL olist_s3_credential)
+COMMENT 'External Delta Lake storage for Bronze/Silver/Gold tables';
+
 -- 3) Permissions (adjust principals)
 GRANT READ FILES ON EXTERNAL LOCATION olist_raw_ext_loc TO `account users`;
 GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION olist_autoloader_state_ext_loc TO `account users`;
+GRANT READ FILES, WRITE FILES ON EXTERNAL LOCATION olist_delta_ext_loc TO `account users`;

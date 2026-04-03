@@ -64,7 +64,8 @@ terraform apply
 ### 1c. Set up Unity Catalog and schemas
 
 Run in Databricks SQL Editor:
-1. `databricks/sql/00_unity_catalog_setup.sql` — creates `dev` and `prod` catalogs with `bronze`, `silver`, `gold` schemas.
+1. Edit `databricks/sql/00_unity_catalog_setup.sql` — replace `<your-raw-bucket>` for schema managed locations.
+2. Run `databricks/sql/00_unity_catalog_setup.sql` — creates `dev` and `prod` catalogs with `bronze`, `silver`, `gold` schemas stored in S3 Delta paths.
 
 ### 1d. Configure S3 access from Databricks
 
@@ -72,7 +73,7 @@ Run in Databricks SQL Editor:
 2. Copy the trust policy values Databricks shows you.
 3. In AWS IAM, create a role and attach the trust policy + an S3 access policy.
 4. Edit `databricks/sql/01_external_location_s3.sql` — replace `<your-raw-bucket>`.
-5. Run the SQL file in Databricks SQL Editor.
+5. Run the SQL file in Databricks SQL Editor (raw, Auto Loader state, and Delta external locations).
 
 ### 1e. Connect Databricks Repos to GitHub
 
@@ -163,9 +164,13 @@ Open and run one of these notebooks in Databricks:
 
 Set these parameters at the top of the notebook before running:
 - `RAW_BUCKET`: your S3 raw bucket name
-- `RAW_PREFIX`: `raw/olist`
-- `CATALOG`: `dev`
-- `BRONZE_SCHEMA`: `bronze`
+- `TARGET_CATALOG`: `dev`
+- `TARGET_SCHEMA`: `bronze`
+- `DELTA_BASE_PATH`: `s3://<your-raw-bucket>/delta/olist` (optional; default shown)
+- `FORCE_RELOAD`: `false` (set `true` for full reload)
+
+Auto Loader notebook only:
+- `AUTOLOADER_STATE_BASE`: `s3://<your-raw-bucket>/state/autoloader/olist` (optional; default shown)
 
 The Auto Loader notebook adds incremental tracking — subsequent runs skip already-loaded tables automatically. Use `FORCE_RELOAD=true` to bypass the registry and reload everything.
 
@@ -337,7 +342,10 @@ python scripts/reset_s3_data.py --bucket <your-raw-bucket> --mode raw --profile 
 # Delete Auto Loader state only
 python scripts/reset_s3_data.py --bucket <your-raw-bucket> --mode state --profile <profile> --yes
 
-# Delete both
+# Delete Delta data only
+python scripts/reset_s3_data.py --bucket <your-raw-bucket> --mode delta --profile <profile> --yes
+
+# Delete raw + state + delta
 python scripts/reset_s3_data.py --bucket <your-raw-bucket> --mode all --profile <profile> --yes
 ```
 
