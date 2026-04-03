@@ -22,6 +22,9 @@ vars:
   silver_schema: "silver"
   gold_schema: "gold"
 
+on-run-start:
+  - "USE CATALOG {{ var('catalog') }}"
+
 models:
   olist:
     staging:
