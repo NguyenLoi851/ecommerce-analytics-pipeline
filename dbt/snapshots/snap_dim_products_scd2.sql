@@ -2,7 +2,9 @@
 
 {{
     config(
+        database=var('catalog'),
         schema=var('silver_schema'),
+        table_format='iceberg',
         unique_key='product_id',
         strategy='check',
         check_cols=[
