@@ -51,7 +51,7 @@
         "notebook_path": "databricks/notebooks/01_bronze_ingestion",
         "base_parameters": {
           "RAW_BUCKET": "<your-raw-bucket>",
-          "TARGET_CATALOG": "prod",
+          "TARGET_CATALOG": "{{job.parameters.env}}",
           "TARGET_SCHEMA": "bronze"
         },
         "source": "GIT"
@@ -70,7 +70,7 @@
       "notebook_task": {
         "notebook_path": "databricks/notebooks/02_bronze_quality_checks",
         "base_parameters": {
-          "TARGET_CATALOG": "prod",
+          "TARGET_CATALOG": "{{job.parameters.env}}",
           "TARGET_SCHEMA": "bronze",
           "FAIL_ON_QUALITY_ERROR": "true"
         },
@@ -89,10 +89,8 @@
         "project_directory": "dbt",
         "commands": [
           "dbt deps",
-          "dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --vars '{\"catalog\": \"prod\"}'"
+          "dbt snapshot --select snap_dim_customers_scd2 snap_dim_products_scd2 --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"silver\"}'"
         ],
-        "schema": "silver",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -111,10 +109,8 @@
         "project_directory": "dbt",
         "commands": [
           "dbt deps",
-          "dbt run --select staging silver --vars '{\"catalog\": \"prod\"}'"
+          "dbt run --select staging silver --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"silver\"}'"
         ],
-        "schema": "silver",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -132,10 +128,8 @@
       "dbt_task": {
         "project_directory": "dbt",
         "commands": [
-          "dbt test --select staging silver --vars '{\"catalog\": \"prod\"}'"
+          "dbt test --select staging silver --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"silver\"}'"
         ],
-        "schema": "silver",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -152,10 +146,8 @@
       "dbt_task": {
         "project_directory": "dbt",
         "commands": [
-          "dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"prod\"}'"
+          "dbt run --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"silver\"}'"
         ],
-        "schema": "silver",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -173,10 +165,8 @@
       "dbt_task": {
         "project_directory": "dbt",
         "commands": [
-          "dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"prod\"}'"
+          "dbt test --select dim_customers_scd2_merge dim_products_scd2_merge --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"silver\"}'"
         ],
-        "schema": "silver",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -194,10 +184,8 @@
       "dbt_task": {
         "project_directory": "dbt",
         "commands": [
-          "dbt run --select gold --vars '{\"catalog\": \"prod\"}'"
+          "dbt run --select gold --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"gold\"}'"
         ],
-        "schema": "gold",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -215,10 +203,8 @@
       "dbt_task": {
         "project_directory": "dbt",
         "commands": [
-          "dbt test --select gold --vars '{\"catalog\": \"prod\"}'"
+          "dbt test --select gold --vars '{\"catalog\": \"{{job.parameters.env}}\", \"schema\": \"gold\"}'"
         ],
-        "schema": "gold",
-        "catalog": "prod",
         "warehouse_id": "<your-sql-warehouse-id>",
         "source": "GIT"
       },
@@ -235,7 +221,7 @@
       "notebook_task": {
         "notebook_path": "databricks/notebooks/03_publish_gold",
         "base_parameters": {
-          "TARGET_CATALOG": "prod",
+          "TARGET_CATALOG": "{{job.parameters.env}}",
           "OPTIMIZE_TABLES": "true"
         },
         "source": "GIT"
