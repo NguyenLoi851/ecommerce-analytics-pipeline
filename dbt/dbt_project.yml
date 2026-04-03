@@ -17,7 +17,6 @@ clean-targets:
   - "dbt_packages"
 
 vars:
-  catalog: "{{ target.catalog }}"
   raw_bucket_name: "e-commercial-pipeline-olist-raw-dev"
   bronze_schema: "bronze"
   silver_schema: "silver"
