@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 with order_items as (
 
     select

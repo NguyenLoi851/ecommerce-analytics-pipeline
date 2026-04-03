@@ -18,6 +18,7 @@ clean-targets:
 
 vars:
   catalog: "dev"
+  raw_bucket_name: "e-commercial-pipeline-olist-raw-dev"
   bronze_schema: "bronze"
   silver_schema: "silver"
   gold_schema: "gold"

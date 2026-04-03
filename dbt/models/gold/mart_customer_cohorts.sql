@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 with customer_orders as (
 
     select

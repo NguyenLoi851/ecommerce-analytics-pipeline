@@ -1,3 +1,5 @@
+{{ external_table_location() }}
+
 -- Silver fact: fct_orders
 -- Source: dev.bronze.orders
 -- Adds derived columns for delivery performance analysis.
